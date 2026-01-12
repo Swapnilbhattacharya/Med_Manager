@@ -2,15 +2,19 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
+// PASTE YOUR KEYS FROM FIREBASE CONSOLE HERE
 const firebaseConfig = {
-  apiKey: "YOUR_KEY", // Get these from your Firebase Console tab!
-  authDomain: "YOUR_ID.firebaseapp.com",
-  projectId: "YOUR_ID",
-  storageBucket: "YOUR_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDxbTRhppNnsSdlt53Hmekxl3wgICHEoOQ",
+  authDomain: "medicationmanager-1eb47.firebaseapp.com",
+  projectId: "medicationmanager-1eb47",
+  storageBucket: "medicationmanager-1eb47.firebasestorage.app",
+  messagingSenderId: "425584456938",
+  appId: "1:425584456938:web:1108f7e0b4d7a431615393"
 };
 
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// These are the "tools" your team will use
+export const auth = getAuth(app); // For Login (Alisha)
+export const db = getFirestore(app); // For Meds (You)
+;
