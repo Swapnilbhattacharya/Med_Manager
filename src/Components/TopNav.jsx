@@ -1,3 +1,4 @@
+import "./TopNav.css";
 export default function TopNav() {
   return (
     <div className="top-nav">

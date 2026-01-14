@@ -1,67 +1,42 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React from "react";
+import "./Dashboard.css";
+import { logoutUser } from "../services/authService";
 
-import ProgressRing from "../components/ProgressRing";
-import MedicineCard from "../components/MedicineCard";
-import Schedule from "../components/Schedule";
+// 👇 PATH FIX: Going up out of 'pages' and into 'Components'
+import TopNav from "../Components/TopNav";
+import ProgressRing from "../Components/ProgressRing";
+import MedicineCard from "../Components/MedicineCard";
+import Schedule from "../Components/Schedule";
 
-export default function Dashboard() {
-  const navigate = useNavigate();
-  const [medicines, setMedicines] = useState([]);
-
-  // Load medicines saved from AddMed.jsx
-  useEffect(() => {
-    const storedMedicines =
-      JSON.parse(localStorage.getItem("medicines")) || [];
-    setMedicines(storedMedicines);
-  }, []);
-
+export default function Dashboard({ user }) {
   return (
-    <div className="dashboard" style={{ padding: "20px" }}>
-      <h3>Good Morning 👋</h3>
+    <div className="dashboard-container">
+      <TopNav />
+      
+      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
+        <div>
+          {/* Grabs the name from the email (e.g., buddy@gmail.com -> buddy) */}
+          <h2>Welcome, {user.email.split('@')[0]} 👋</h2>
+          <p>You have meds to take today.</p>
+        </div>
+        <button onClick={logoutUser} style={{ padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', height: 'fit-content' }}>
+          Logout
+        </button>
+      </div>
 
-      {/* Progress Ring */}
-      <ProgressRing
-        taken={0}
-        total={medicines.length > 0 ? medicines.length : 1}
-      />
+      <div className="dashboard-section">
+        <h3>Daily Progress</h3>
+        <ProgressRing taken={3} total={5} />
+      </div>
 
-      {/* Scan Button */}
-      <button
-        onClick={() => navigate("/scan")}
-        style={{
-          margin: "15px 0",
-          padding: "10px 16px",
-          background: "#4caf50",
-          color: "#fff",
-          border: "none",
-          borderRadius: "6px",
-          cursor: "pointer",
-        }}
-      >
-        + Scan New Medicine
-      </button>
+      <div className="dashboard-section">
+        <h4>My Medications</h4>
+        <div className="medicine-grid">
+          <MedicineCard name="Atorvastatin" dose="20mg | 1 Tablet" status="Active" />
+          <MedicineCard name="Metformin" dose="500mg | With food" status="Active" />
+        </div>
+      </div>
 
-      <h4>My Medications</h4>
-
-      {/* Empty state */}
-      {medicines.length === 0 && (
-        <p style={{ color: "#777" }}>
-          No medicines added yet. Scan one to get started.
-        </p>
-      )}
-
-      {/* Medicine list */}
-      {medicines.map((med) => (
-        <MedicineCard
-          key={med.id}
-          name={med.name}
-          dose={med.dosage || "—"}
-          status="Active"
-        />
-      ))}
-
-      {/* Schedule section */}
       <Schedule />
     </div>
   );
