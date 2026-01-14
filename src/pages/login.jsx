@@ -26,7 +26,7 @@ export default function Login() {
     <div style={styles.page}>
       <div style={styles.card}>
         <h2 style={styles.title}>
-          {isSignUp ? "Create Account" : "Welcome Back"}
+          {isSignUp ? "Create Account" : "Welcome"}
         </h2>
         <p style={styles.subtitle}>
           {isSignUp
