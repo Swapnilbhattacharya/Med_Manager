@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { auth } from "./services/firebase"; 
 import { onAuthStateChanged } from "firebase/auth";
 
-// Page Imports
+// 👇 Ensure these folder names (pages) and file names match exactly
 import Login from "./pages/login"; 
 import Dashboard from "./pages/Dashboard"; 
 
@@ -11,7 +11,7 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listener to check if a user is logged in
+    // Listens to Firebase for the current login session
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -19,15 +19,16 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+  // Prevents the app from skipping to the wrong page while initializing
   if (loading) {
     return (
-      <div style={{ display: "flex", height: "100vh", justifyContent: "center", alignItems: "center", fontFamily: "sans-serif" }}>
-        <h2>Initializing Med Manager...</h2>
+      <div style={{ display: "flex", height: "100vh", justifyContent: "center", alignItems: "center", background: "#f9fafb" }}>
+        <h2 style={{ fontFamily: "sans-serif", color: "#4f46e5" }}>Initializing Med Manager...</h2>
       </div>
     );
   }
 
-  // GATEKEEPER: If user exists, show Dashboard. Otherwise, show Login.
+  // Proper Gatekeeper logic
   return user ? <Dashboard user={user} /> : <Login />;
 }
 

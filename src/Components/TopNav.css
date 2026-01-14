@@ -1,31 +1,74 @@
+/* Container for the Nav */
 .top-nav {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 24px;
-    background: white;
-    border-bottom: 1px solid #e5e7eb;
-  }
-  
-  .logo {
-    font-size: 20px;
-    font-weight: 600;
-  }
-  
-  .nav-actions {
-    display: flex;
-    gap: 12px;
-  }
-  
-  .nav-actions button {
-    padding: 6px 12px;
-    border: none;
-    background: #f3f4f6;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-  
-  .logout-btn {
-    background: #ef4444;
-    color: white;
-  }
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 28px;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: white;
+  box-shadow: 0 8px 25px rgba(79, 70, 229, 0.2);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+/* Brand/Logo Styling */
+.brand {
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Nav Links Wrapper */
+.nav-links {
+  display: flex;
+  gap: 12px;
+}
+
+/* Base Button Styling */
+.nav-links button {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 12px;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+/* Hover Effect */
+.nav-links button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+/* Active Button (White with Blue Text) */
+.nav-links button.active {
+  background: white;
+  color: #4f46e5;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Logout Button (Red) */
+.nav-links button.logout {
+  background: #ef4444;
+  margin-left: 10px;
+}
+
+.nav-links button.logout:hover {
+  background: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Button Press Effect */
+.nav-links button:active {
+  transform: scale(0.96);
+}
