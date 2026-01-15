@@ -1,8 +1,8 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { signUpUser, loginUser } from "../services/authService";
 
 export default function Login() {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false); // Default to login view
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -11,12 +11,20 @@ export default function Login() {
     e.preventDefault();
     try {
       if (isSignUp) {
+        // Uses the new signUpUser which creates the Firestore profile
         await signUpUser(email, password, name);
         alert("Account Created Successfully!");
       } else {
         await loginUser(email, password);
-        alert("Logged in Successfully!");
       }
+
+      /**
+       * NATIVE NAVIGATION: 
+       * Since we aren't using React Router, window.location.href 
+       * forces a refresh to the dashboard, ensuring the App state reloads.
+       */
+      window.location.href = "/"; 
+
     } catch (error) {
       alert(error.message);
     }
@@ -26,12 +34,12 @@ export default function Login() {
     <div style={styles.page}>
       <div style={styles.card}>
         <h2 style={styles.title}>
-          {isSignUp ? "Create Account" : "Welcome"}
+          {isSignUp ? "Create Account" : "Welcome Back"}
         </h2>
         <p style={styles.subtitle}>
           {isSignUp
-            ? "Join us and start your journey"
-            : "Login to continue"}
+            ? "Join us and start managing your household meds"
+            : "Login to check your daily schedule"}
         </p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
@@ -89,27 +97,28 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    fontFamily: "Segoe UI, sans-serif",
+    fontFamily: "'Segoe UI', Roboto, sans-serif",
   },
   card: {
     background: "#ffffff",
     padding: "35px",
-    borderRadius: "12px",
-    width: "100%",
-    maxWidth: "380px",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
+    borderRadius: "16px",
+    width: "90%",
+    maxWidth: "400px",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
     textAlign: "center",
   },
   title: {
     marginBottom: "8px",
-    fontSize: "24px",
-    fontWeight: "600",
-    color: "#2d3748",
+    fontSize: "26px",
+    fontWeight: "700",
+    color: "#1a202c",
   },
   subtitle: {
     marginBottom: "25px",
-    color: "#718096",
+    color: "#4a5568",
     fontSize: "14px",
+    lineHeight: "1.5",
   },
   form: {
     display: "flex",
@@ -117,29 +126,32 @@ const styles = {
     gap: "15px",
   },
   input: {
-    padding: "12px 14px",
-    borderRadius: "8px",
-    border: "1px solid #cbd5e0",
-    fontSize: "14px",
+    padding: "14px",
+    borderRadius: "10px",
+    border: "1px solid #e2e8f0",
+    fontSize: "15px",
     outline: "none",
+    transition: "border 0.2s",
   },
   primaryBtn: {
     marginTop: "10px",
-    padding: "12px",
-    borderRadius: "8px",
+    padding: "14px",
+    borderRadius: "10px",
     border: "none",
     background: "#667eea",
     color: "#fff",
-    fontSize: "15px",
+    fontSize: "16px",
     fontWeight: "600",
     cursor: "pointer",
+    boxShadow: "0 4px 6px rgba(102, 126, 234, 0.3)",
   },
   switchBtn: {
-    marginTop: "18px",
+    marginTop: "20px",
     background: "none",
     border: "none",
     color: "#667eea",
     fontSize: "14px",
+    fontWeight: "500",
     cursor: "pointer",
   },
 };
