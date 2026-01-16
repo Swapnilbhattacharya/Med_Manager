@@ -1,54 +1,60 @@
 import { db } from "./firebase";
 import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  query, 
-  orderBy, 
-  serverTimestamp 
+  collection, addDoc, getDocs, query, orderBy, 
+  serverTimestamp, doc, updateDoc, writeBatch 
 } from "firebase/firestore";
 
-/**
- * 1. ADD MEDICINE
- * Strictly saves to the household's shared collection.
- */
-export const addMedicine = async (householdId, medData) => {
-  if (!householdId) {
-    throw new Error("Cannot add medicine: No Household ID found. Please create/join a household first.");
-  }
-  
+// Helper to get the correct collection path
+const getMedCol = (houseId) => collection(db, "households", houseId, "medicines");
+
+export const addMedicine = async (houseId, medData) => {
+  if (!houseId) throw new Error("No Household ID found!");
   try {
-    // Path: households/{householdId}/medicines
-    const medRef = collection(db, "households", householdId, "medicines");
-    return await addDoc(medRef, {
+    const colRef = getMedCol(houseId);
+    return await addDoc(colRef, {
       ...medData,
+      status: "pending", // Critical: ensures it shows up in Schedule
       taken: false,
       createdAt: serverTimestamp()
     });
-  } catch (error) {
-    console.error("Database Write Error:", error);
-    throw error;
-  }
+  } catch (error) { console.error("AddMed Error:", error); throw error; }
 };
 
-/**
- * 2. GET HOUSEHOLD MEDS
- * Strictly fetches from the household's shared collection.
- */
-export const getHouseholdMeds = async (householdId) => {
-  if (!householdId) return [];
-  
+export const getHouseholdMeds = async (houseId) => {
+  if (!houseId) return [];
   try {
-    const medRef = collection(db, "households", householdId, "medicines");
-    // Sort by time so 8:00 AM appears before 9:00 PM
-    const q = query(medRef, orderBy("time", "asc"));
+    const q = query(getMedCol(houseId), orderBy("time", "asc"));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  } catch (error) {
-    console.error("Database Read Error:", error);
-    return [];
+  } catch (error) { 
+    console.error("FetchMeds Error:", error); 
+    return []; 
   }
 };
 
-// Alias to keep Dashboard from crashing
+export const updateMedicationStatus = async (houseId, medId, newStatus) => {
+  try {
+    const medRef = doc(db, "households", houseId, "medicines", medId);
+    await updateDoc(medRef, {
+      status: newStatus,
+      taken: newStatus === "taken"
+    });
+  } catch (error) { console.error("UpdateStatus Error:", error); }
+};
+
+export const resetDailyStatus = async (houseId) => {
+  try {
+    const snapshot = await getDocs(getMedCol(houseId));
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((d) => {
+      const ref = doc(db, "households", houseId, "medicines", d.id);
+      batch.update(ref, { status: "pending", taken: false });
+    });
+    const houseRef = doc(db, "households", houseId);
+    batch.update(houseRef, { lastResetDate: new Date().toDateString() });
+    await batch.commit();
+  } catch (error) { console.error("Reset Error:", error); }
+};
+
+// ALIAS: Fixes the Dashboard import error
 export const getUserMeds = getHouseholdMeds;
