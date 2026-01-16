@@ -1,99 +1,74 @@
 import React, { useState } from "react";
-import { joinExistingHousehold } from "../services/authService";
+import { db } from "../services/firebase";
+import { doc, updateDoc, collection, addDoc } from "firebase/firestore";
 import "./Dashboard.css";
 
-export default function Join({ user, setView }) {
-  const [houseId, setHouseId] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export default function Setup({ user, setView }) {
+  const [houseName, setHouseName] = useState("");
+  const [houseIdInput, setHouseIdInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleJoin = async (e) => {
-    e.preventDefault();
-    if (!houseId.trim()) return;
-
-    setIsSubmitting(true);
+  const handleCreate = async () => {
+    if (!houseName) return alert("Please enter a family name");
+    setLoading(true);
     try {
-      await joinExistingHousehold(houseId, user.uid);
-      alert("Welcome to the family! Household joined.");
-      window.location.reload(); // Refresh to load the new household data
-    } catch (error) {
-      alert("Could not find that Household ID. Please double-check with the owner.");
-    } finally {
-      setIsSubmitting(false);
-    }
+      const houseRef = await addDoc(collection(db, "households"), {
+        name: houseName,
+        admin: user.uid,
+        createdAt: new Date()
+      });
+      await updateDoc(doc(db, "users", user.uid), { householdId: houseRef.id });
+    } catch (err) { alert("Error creating household"); }
+    setLoading(false);
+  };
+
+  const handleJoin = async () => {
+    if (!houseIdInput) return alert("Please enter a Household ID");
+    setLoading(true);
+    try {
+      // Basic update: In a real app, you might want to verify the ID exists first
+      await updateDoc(doc(db, "users", user.uid), { householdId: houseIdInput });
+    } catch (err) { alert("Invalid Household ID"); }
+    setLoading(false);
   };
 
   return (
-    <div className="dashboard-page" style={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #f8fbff 0%, #eef2ff 100%)' 
-    }}>
-      <div className="card" style={{ 
-        maxWidth: '450px', 
-        width: '90%', 
-        padding: '40px', 
-        boxShadow: '0 20px 50px rgba(79, 70, 229, 0.1)',
-        textAlign: 'center',
-        borderRadius: '24px'
-      }}>
-        <div style={{ fontSize: '50px', marginBottom: '20px' }}>🤝</div>
-        <h2 style={{ fontSize: '28px', fontWeight: '800', color: '#1e1b4b' }}>Join a Household</h2>
-        <p className="subtitle" style={{ marginBottom: '30px' }}>
-          Enter the unique Household ID shared by your family member to sync your medications.
-        </p>
+    <div className="dashboard-wrapper">
+      <div className="dash-header" style={{ justifyContent: 'center', textAlign: 'center' }}>
+        <div>
+          <h2 className="highlight-name">Welcome to Med Manager 🏠</h2>
+          <p style={{ color: '#64748b' }}>How would you like to start today?</p>
+        </div>
+      </div>
 
-        <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ textAlign: 'left' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700', color: '#4f46e5', marginLeft: '4px', textTransform: 'uppercase' }}>
-              Household ID
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. xY79B2... (Ask the owner for this)"
-              value={houseId}
-              onChange={(e) => setHouseId(e.target.value)}
-              required
-              style={{
-                width: '100%',
-                padding: '14px',
-                marginTop: '6px',
-                borderRadius: '12px',
-                border: '2px solid #e2e8f0',
-                fontSize: '15px',
-                outline: 'none',
-                transition: 'border-color 0.2s',
-                boxSizing: 'border-box'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#4f46e5'}
-              onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-            />
-          </div>
-
-          <button 
-            type="submit" 
-            className="primary-btn" 
-            disabled={isSubmitting}
-            style={{ padding: '16px', fontSize: '16px', marginTop: '10px' }}
-          >
-            {isSubmitting ? "Connecting..." : "Connect to Household"}
+      <div className="form-container-centered" style={{ gap: '30px', flexDirection: 'column' }}>
+        {/* CREATE SECTION */}
+        <div className="professional-form-card glass-inner">
+          <h3 style={{ color: '#4f46e5', marginBottom: '15px' }}>Create New Household</h3>
+          <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '15px' }}>Start a fresh schedule for your family.</p>
+          <input 
+            type="text" className="pro-input" placeholder="Family Name (e.g., Smith Family)" 
+            value={houseName} onChange={(e) => setHouseName(e.target.value)}
+          />
+          <button onClick={handleCreate} disabled={loading} className="btn-save-main" style={{ marginTop: '20px' }}>
+            {loading ? "Creating..." : "Create Household"}
           </button>
-        </form>
+        </div>
 
-        <button 
-          onClick={() => setView("dashboard")}
-          style={{ 
-            marginTop: '20px', 
-            background: 'none', 
-            border: 'none', 
-            color: '#64748b', 
-            cursor: 'pointer',
-            fontWeight: '600',
-            fontSize: '14px'
-          }}
-        >
-          ← Go Back
-        </button>
+        <div style={{ color: '#94a3b8', fontWeight: '800' }}>— OR —</div>
+
+        {/* JOIN SECTION */}
+        <div className="professional-form-card glass-inner">
+          <h3 style={{ color: '#10b981', marginBottom: '15px' }}>Join Existing</h3>
+          <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '15px' }}>Enter the ID shared by a family member.</p>
+          <input 
+            type="text" className="pro-input" placeholder="Paste Household ID here" 
+            value={houseIdInput} onChange={(e) => setHouseIdInput(e.target.value)}
+          />
+          <button onClick={handleJoin} disabled={loading} className="btn-add-main" style={{ marginTop: '20px', background: '#10b981' }}>
+            {loading ? "Joining..." : "Join Household"}
+          </button>
+        </div>
       </div>
     </div>
   );

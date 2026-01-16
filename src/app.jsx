@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { auth, db } from "./services/firebase"; 
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 
 // Page Imports
 import Login from "./pages/login"; 
 import Dashboard from "./pages/Dashboard"; 
-import Scan from "./pages/Scan"; 
 import Calendar from "./pages/Calendar"; 
-import Join from "./pages/Join";
+import Setup from "./pages/Join"; // We will make this the combined Setup page
 import AddMed from "./pages/AddMed";
-
-// Component Imports
 import TopNav from "./Components/TopNav"; 
 import HouseholdFooter from "./Components/HouseholdFooter";
 
@@ -22,66 +19,53 @@ export default function App() {
   const [householdId, setHouseholdId] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // Fetch the user's profile to find their Household ID
-        try {
-          const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-          if (userDoc.exists()) {
-            setHouseholdId(userDoc.data().householdId);
+        // Real-time listener for user data
+        const userRef = doc(db, "users", currentUser.uid);
+        const unsubDoc = onSnapshot(userRef, (docSnap) => {
+          if (docSnap.exists() && docSnap.data().householdId) {
+            setHouseholdId(docSnap.data().householdId);
+          } else {
+            setHouseholdId(null); // Force setup view if ID is missing
           }
-        } catch (err) {
-          console.error("Error syncing household:", err);
-        }
+          setLoading(false);
+        });
+        return () => unsubDoc();
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  if (loading) {
-    return (
-      <div style={{ display: "flex", height: "100vh", justifyContent: "center", alignItems: "center", background: "#f8fafc" }}>
-        <div style={{ textAlign: 'center' }}>
-          <h2 style={{ color: "#4f46e5", fontFamily: "sans-serif" }}>💊 Med Manager</h2>
-          <p style={{ color: "#64748b" }}>Syncing your family schedule...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // 1. If no user, show only the Login page
+  if (loading) return <div className="loading-screen"><h2>💊 Syncing...</h2></div>;
   if (!user) return <Login />;
 
-  // 2. Main App (Once logged in)
+  // AUTO-REDIRECT: If logged in but no household, show Setup screen
+  const currentView = !householdId ? "setup" : view;
+
   return (
-    <div className="app-main-layout" style={{ minHeight: "100vh", background: "#f8fbff", paddingBottom: '70px' }}>
-      <TopNav setView={setView} currentView={view} />
+    <div className="app-main-layout" style={{ minHeight: "100vh", background: "#f8fbff" }}>
+      <TopNav setView={setView} currentView={currentView} />
 
       <main>
-        {view === "dashboard" && (
+        {currentView === "setup" && <Setup user={user} setView={setView} />}
+        
+        {currentView === "dashboard" && (
           <Dashboard user={user} householdId={householdId} setView={setView} />
         )}
         
-        {view === "calendar" && (
+        {currentView === "calendar" && (
           <Calendar user={user} householdId={householdId} setView={setView} />
         )}
-        
-        {view === "scan" && (
-          <Scan setView={setView} />
-        )}
 
-        {view === "join" && (
-          <Join user={user} setView={setView} />
-        )}
-
-        {view === "addMed" && (
+        {currentView === "addMed" && (
           <AddMed user={user} householdId={householdId} setView={setView} />
         )}
       </main>
 
-      {/* Persistent footer so the ID is always visible */}
       <HouseholdFooter householdId={householdId} />
     </div>
   );
