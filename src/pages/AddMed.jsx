@@ -5,80 +5,92 @@ import "./Dashboard.css";
 export default function AddMed({ user, householdId, setView }) {
   const [formData, setFormData] = useState({
     name: "",
-    barcode: "",
     dosage: "",
     day: "Monday",
-    time: "08:00"
+    time: "08:00",
   });
-  const [isSaving, setIsSaving] = useState(false);
-
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // 🛡️ Safety Check: Prevent adding meds if user isn't in a house yet
-    if (!householdId) {
-      alert("Please create or join a household from the Dashboard first!");
-      setView("dashboard");
-      return;
-    }
-
-    setIsSaving(true);
     try {
-      await addMedicine(householdId, formData);
-      alert("Medicine added to Household Schedule!");
-      setView("calendar"); // Go to calendar to see it instantly
+      await addMedicine(householdId, { 
+        ...formData, 
+        userId: user.uid,
+        status: "pending" 
+      });
+      setView("dashboard");
     } catch (err) {
-      alert(err.message);
-    } finally {
-      setIsSaving(false);
+      alert("Error adding medication");
     }
   };
 
   return (
-    <div className="dashboard-page" style={{ background: '#f8fbff' }}>
-      <div className="dashboard-header">
-        <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ color: '#4f46e5', fontSize: '30px' }}>➕</span> Add Medicine
-        </h2>
-        <button className="primary-btn" onClick={() => setView("dashboard")} style={{ background: '#64748b' }}>Cancel</button>
+    <div className="dashboard-wrapper">
+      <div className="dash-header">
+        <div>
+          <h2 className="highlight-name">Add Medication 💊</h2>
+          <p style={{ color: '#64748b', marginTop: '5px' }}>Schedule a new reminder for your daily routine.</p>
+        </div>
+        <button className="btn-cancel" onClick={() => setView("dashboard")}>Cancel</button>
       </div>
 
-      <div className="card" style={{ maxWidth: '600px', margin: '0 auto', padding: '30px' }}>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
-          <div>
-            <label style={labelStyle}>Medicine Name</label>
-            <input required style={inputStyle} value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="e.g. Paracetamol" />
+      <div className="form-container-centered">
+        <form onSubmit={handleSubmit} className="professional-form-card glass-inner">
+          <div style={{ marginBottom: '20px' }}>
+            <label style={styles.label}>Medicine Name</label>
+            <input
+              type="text"
+              className="pro-input"
+              placeholder="e.g. Paracetamol"
+              style={{ width: '100%' }}
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
           </div>
 
-          <div style={{ display: 'flex', gap: '15px' }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Barcode</label>
-              <input style={inputStyle} value={formData.barcode} onChange={(e) => setFormData({...formData, barcode: e.target.value})} placeholder="Scan or type ID" />
+          <div className="form-row-double">
+            <div>
+              <label style={styles.label}>Dosage</label>
+              <input
+                type="text"
+                className="pro-input"
+                placeholder="e.g. 500mg"
+                style={{ width: '100%' }}
+                value={formData.dosage}
+                onChange={(e) => setFormData({ ...formData, dosage: e.target.value })}
+                required
+              />
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Dosage</label>
-              <input style={inputStyle} value={formData.dosage} onChange={(e) => setFormData({...formData, dosage: e.target.value})} placeholder="e.g. 500mg" />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '15px' }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Day of Week</label>
-              <select style={inputStyle} value={formData.day} onChange={(e) => setFormData({...formData, day: e.target.value})}>
-                {days.map(d => <option key={d} value={d}>{d}</option>)}
+            <div>
+              <label style={styles.label}>Day of Week</label>
+              <select
+                className="pro-input"
+                style={{ width: '100%' }}
+                value={formData.day}
+                onChange={(e) => setFormData({ ...formData, day: e.target.value })}
+              >
+                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
               </select>
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Specific Time</label>
-              <input type="time" style={inputStyle} value={formData.time} onChange={(e) => setFormData({...formData, time: e.target.value})} />
-            </div>
           </div>
 
-          <button type="submit" className="primary-btn" disabled={isSaving} style={{ padding: '16px', fontSize: '16px' }}>
-            {isSaving ? "Saving..." : "Save to Household"}
+          <div style={{ margin: '20px 0' }}>
+            <label style={styles.label}>Specified Time</label>
+            <input
+              type="time"
+              className="pro-input"
+              style={{ width: '100%' }}
+              value={formData.time}
+              onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+              required
+            />
+          </div>
+
+          <button type="submit" className="btn-save-main">
+            Confirm Schedule
           </button>
         </form>
       </div>
@@ -86,5 +98,12 @@ export default function AddMed({ user, householdId, setView }) {
   );
 }
 
-const labelStyle = { display: 'block', fontSize: '11px', fontWeight: '800', color: '#4f46e5', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' };
-const inputStyle = { width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '15px', outline: 'none', boxSizing: 'border-box' };
+const styles = {
+  label: {
+    display: 'block',
+    marginBottom: '8px',
+    fontWeight: '600',
+    color: '#1e293b',
+    fontSize: '14px'
+  }
+};

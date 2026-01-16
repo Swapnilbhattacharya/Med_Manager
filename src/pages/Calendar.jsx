@@ -7,7 +7,10 @@ export default function Calendar({ householdId, setView }) {
   const [loading, setLoading] = useState(true);
 
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const fullDays = { "Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday", "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday" };
+  const fullDays = { 
+    "Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", 
+    "Thu": "Thursday", "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday" 
+  };
 
   useEffect(() => {
     if (householdId) {
@@ -21,38 +24,45 @@ export default function Calendar({ householdId, setView }) {
   }, [householdId]);
 
   return (
-    <div className="dashboard-page">
-      <div className="dashboard-header">
-        <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '30px' }}>🗓️</span> Weekly Schedule
+    <div className="dashboard-wrapper">
+      <div className="dash-header">
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <span style={{ fontSize: '32px' }}>🗓️</span> 
+          <span className="highlight-name">Weekly Schedule</span>
         </h2>
-        <button className="primary-btn" onClick={() => setView("dashboard")} style={{ background: '#4f46e5' }}>Home</button>
+        <button className="btn-add-main" onClick={() => setView("dashboard")}>
+          ← Back Home
+        </button>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '50px' }}><h3>Syncing Calendar...</h3></div>
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <h3 style={{ color: '#4f46e5' }}>Syncing Calendar...</h3>
+        </div>
       ) : (
-        <div className="med-grid">
+        <div className="calendar-grid-layout">
           {days.map(day => {
             const dayMeds = meds.filter(m => m.day === fullDays[day]);
 
             return (
-              <div key={day} className="card" style={{ minHeight: '180px' }}>
-                <h3 style={{ color: '#4f46e5', borderBottom: '2px solid #f1f5f9', paddingBottom: '10px' }}>{day}</h3>
+              <div key={day} className="glass-inner calendar-day-card">
+                <h3 className="day-title">{day}</h3>
                 
-                {dayMeds.length > 0 ? (
-                  dayMeds.map(m => (
-                    <div key={m.id} style={{ 
-                      padding: '10px', background: '#f8fafc', borderRadius: '10px', 
-                      marginBottom: '10px', borderLeft: '4px solid #4f46e5', fontSize: '14px' 
-                    }}>
-                      <div style={{ fontWeight: '700' }}>{m.time} — {m.name}</div>
-                      <div style={{ color: '#64748b', fontSize: '12px' }}>{m.dosage}</div>
-                    </div>
-                  ))
-                ) : (
-                  <p style={{ color: '#94a3b8', fontSize: '12px', textAlign: 'center', marginTop: '30px' }}>No meds</p>
-                )}
+                <div className="day-med-list">
+                  {dayMeds.length > 0 ? (
+                    dayMeds.map(m => (
+                      <div key={m.id} className="calendar-item-box">
+                        <div className="item-time">{m.time}</div>
+                        <div className="item-details">
+                          <strong>{m.name}</strong>
+                          <p>{m.dosage}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="no-meds-placeholder">No meds</div>
+                  )}
+                </div>
               </div>
             );
           })}

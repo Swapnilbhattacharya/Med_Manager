@@ -1,74 +1,86 @@
-/* Container for the Nav */
+/* Import a friendly, rounded font */
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&display=swap');
+
 .top-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 28px;
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  padding: 16px 32px;
+  /* Fancier Gradient with a slight purple tint */
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: white;
-  box-shadow: 0 8px 25px rgba(79, 70, 229, 0.2);
+  /* Soft shadow for depth */
+  box-shadow: 0 10px 30px -10px rgba(79, 70, 229, 0.4);
   position: sticky;
   top: 0;
   z-index: 1000;
+  /* Applying the friendly font */
+  font-family: 'Quicksand', sans-serif;
 }
 
-/* Brand/Logo Styling */
 .brand {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  letter-spacing: -0.5px;
 }
 
-/* Nav Links Wrapper */
 .nav-links {
   display: flex;
-  gap: 12px;
+  gap: 16px;
+  align-items: center;
 }
 
-/* Base Button Styling */
 .nav-links button {
-  background: rgba(255, 255, 255, 0.15);
-  border: none;
-  padding: 8px 16px;
-  border-radius: 12px;
+  /* Glassmorphism Effect: Translucent background */
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px 20px;
+  border-radius: 14px; /* More rounded = more friendly */
   color: white;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Hover Effect */
+/* Friendly Hover: Glow and slight grow */
 .nav-links button:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
-/* Active Button (White with Blue Text) */
+/* Active Button: High contrast and soft shadow */
 .nav-links button.active {
-  background: white;
+  background: #ffffff;
   color: #4f46e5;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  border-color: #ffffff;
+  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2);
 }
 
-/* Logout Button (Red) */
+/* Sophisticated Logout Button */
 .nav-links button.logout {
-  background: #ef4444;
-  margin-left: 10px;
+  background: rgba(248, 113, 113, 0.2);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: #fecaca;
+  margin-left: 8px;
 }
 
 .nav-links button.logout:hover {
-  background: #dc2626;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.2);
 }
 
-/* Button Press Effect */
 .nav-links button:active {
-  transform: scale(0.96);
+  transform: scale(0.94);
 }

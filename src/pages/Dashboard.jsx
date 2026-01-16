@@ -1,75 +1,97 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../services/firebase"; 
-import { doc, getDoc } from "firebase/firestore";
-import { getUserMeds, resetDailyStatus } from "../services/medService";
-
-import ProgressRing from "../Components/ProgressRing";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { getUserMeds } from "../services/medService";
 import MedicineCard from "../Components/MedicineCard";
-import Schedule from "../Components/Schedule";
+import ProgressRing from "../Components/ProgressRing";
+import "./Dashboard.css";
 
 export default function Dashboard({ user, householdId, setView }) {
   const [meds, setMeds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const userName = user.email.split('@')[0];
 
   useEffect(() => {
-    const syncDashboard = async () => {
+    const loadData = async () => {
       if (!householdId) { setLoading(false); return; }
       try {
-        const houseRef = doc(db, "households", householdId);
-        const houseSnap = await getDoc(houseRef);
-
-        if (houseSnap.exists()) {
-          const houseData = houseSnap.data();
-          const today = new Date().toDateString();
-          // Reset if it's a new day
-          if (houseData.lastResetDate !== today) {
-            await resetDailyStatus(householdId);
-          }
-        }
         const data = await getUserMeds(householdId);
         setMeds(data || []);
-      } catch (err) { console.error("Dashboard Load Error:", err); }
-      setLoading(false);
+      } catch (err) { console.error("Error loading meds:", err); } 
+      finally { setLoading(false); }
     };
-    syncDashboard();
+    loadData();
   }, [householdId]);
 
-  if (loading) return <div style={{textAlign: 'center', padding: '50px'}}><h3>Syncing...</h3></div>;
+  const toggleMedStatus = async (medId, currentStatus) => {
+    // Permanent check logic: If already taken, do nothing
+    if (currentStatus) return; 
 
-  // Adherence calculations
-  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const today = dayNames[new Date().getDay()];
-  const todaysMeds = meds.filter(m => m.day === today);
-  const takenCount = todaysMeds.filter(m => m.status === "taken").length;
+    const updatedMeds = meds.map(m => m.id === medId ? { ...m, taken: true } : m);
+    setMeds(updatedMeds);
+
+    try {
+      const medRef = doc(db, "households", householdId, "medications", medId);
+      await updateDoc(medRef, { taken: true });
+    } catch (err) {
+      console.error("Firebase update failed:", err);
+      // Optional: rollback UI if firebase fails
+    }
+  };
+
+  if (loading) return <div className="loading-screen">Loading Medical Suite...</div>;
+
+  const takenCount = meds.filter(m => m.taken).length;
+  const pendingCount = meds.length - takenCount;
 
   return (
-    <div className="dashboard-page">
-      <div className="dashboard-header">
-        <div>
-          <h2>Hello, {user?.email?.split('@')[0]} 👋</h2>
-          <p className="subtitle">Today is {today}</p>
+    <div className="dashboard-wrapper">
+      <header className="dash-header">
+        <div className="welcome-area">
+          <h1>Good Morning, <span className="highlight-name">{userName}</span> ✨</h1>
+          <p>You've completed <span className="count-tag">{takenCount}/{meds.length}</span> doses today.</p>
         </div>
-        <button className="primary-btn" onClick={() => setView("addMed")}>+ Add Medicine</button>
-      </div>
+        <button className="btn-add-main" onClick={() => setView("addMed")}>+ Add Medicine</button>
+      </header>
 
-      <div className="card">
-        <h3>Daily Progress</h3>
-        <ProgressRing taken={takenCount} total={todaysMeds.length} />
-      </div>
+      <div className="main-grid">
+        {/* Sidebar for Progress */}
+        <aside className="adherence-panel">
+          <div className="glass-inner">
+            <h3 className="panel-title">Daily Adherence</h3>
+            <ProgressRing taken={takenCount} total={meds.length} />
+            <div className="stat-mini-row">
+               <div className="mini-box"><strong>{pendingCount}</strong><p>Pending</p></div>
+               <div className="mini-box"><strong>{takenCount}</strong><p>Taken</p></div>
+            </div>
+            <p className="motivational-text">
+              {takenCount === meds.length && meds.length > 0 ? "Perfect Streak! 🌟" : "Keep up the routine!"}
+            </p>
+          </div>
+        </aside>
 
-      <div className="card">
-        <h3>Today's Actions</h3>
-        {/* THIS IS THE SCHEDULE COMPARTMENT */}
-        <Schedule meds={meds} householdId={householdId} />
-      </div>
-      
-      <div className="card">
-        <h3>Inventory</h3>
-        <div className="med-grid">
-          {meds.map(med => (
-            <MedicineCard key={med.id} name={med.name} dose={med.dosage} status={med.status} />
-          ))}
-        </div>
+        {/* Main Schedule Box */}
+        <main className="schedule-panel">
+          <div className="panel-header">
+            <h3>Current Schedule</h3>
+            <span className="today-date">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+          </div>
+          <div className="med-grid">
+            {meds.length > 0 ? (
+              meds.map(med => (
+                <MedicineCard 
+                  key={med.id} 
+                  name={med.name} 
+                  dose={med.dosage || med.dose} 
+                  status={med.taken ? "Taken" : "Pending"} 
+                  onToggle={() => toggleMedStatus(med.id, med.taken)} 
+                />
+              ))
+            ) : (
+              <div className="empty-state-box">No medications found for today.</div>
+            )}
+          </div>
+        </main>
       </div>
     </div>
   );

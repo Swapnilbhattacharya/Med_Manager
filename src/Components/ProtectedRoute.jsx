@@ -1,12 +1,10 @@
-import { Navigate } from "react-router-dom";
-import { auth } from "../firebase";
-
-export default function ProtectedRoute({ children }) {
-  const user = auth.currentUser;
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
+export default function ProgressRing({ taken, total }) {
+  return (
+    <div className="progress-card">
+      <div className="circle">
+        <h2>{taken}/{total}</h2>
+        <p>Meds Taken</p>
+      </div>
+    </div>
+  );
 }
