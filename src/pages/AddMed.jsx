@@ -1,128 +1,90 @@
 import React, { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { addMedicine } from "../services/medService";
+import "./Dashboard.css";
 
-export default function AddMed() {
-  const navigate = useNavigate();
-  const location = useLocation();
+export default function AddMed({ user, householdId, setView }) {
+  const [formData, setFormData] = useState({
+    name: "",
+    barcode: "",
+    dosage: "",
+    day: "Monday",
+    time: "08:00"
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Receive barcode from Scan.jsx
-  const scannedBarcode = location.state?.barcode || "";
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-  // Form states
-  const [name, setName] = useState("");
-  const [barcode, setBarcode] = useState(scannedBarcode);
-  const [dosage, setDosage] = useState("");
-  const [frequency, setFrequency] = useState("");
-  const [error, setError] = useState("");
-
-  const handleSave = () => {
-    if (!name || !barcode) {
-      setError("Medicine name and barcode are required");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // 🛡️ Safety Check: Prevent adding meds if user isn't in a house yet
+    if (!householdId) {
+      alert("Please create or join a household from the Dashboard first!");
+      setView("dashboard");
       return;
     }
 
-    const newMedicine = {
-      id: Date.now(),
-      name,
-      barcode,
-      dosage,
-      frequency,
-      createdAt: new Date().toISOString(),
-    };
-
-    // Save to localStorage (demo-friendly)
-    const existing = JSON.parse(localStorage.getItem("medicines")) || [];
-    localStorage.setItem(
-      "medicines",
-      JSON.stringify([...existing, newMedicine])
-    );
-
-    navigate("/dashboard");
+    setIsSaving(true);
+    try {
+      await addMedicine(householdId, formData);
+      alert("Medicine added to Household Schedule!");
+      setView("calendar"); // Go to calendar to see it instantly
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "400px", margin: "auto" }}>
-      <h2>➕ Add Medicine</h2>
+    <div className="dashboard-page" style={{ background: '#f8fbff' }}>
+      <div className="dashboard-header">
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ color: '#4f46e5', fontSize: '30px' }}>➕</span> Add Medicine
+        </h2>
+        <button className="primary-btn" onClick={() => setView("dashboard")} style={{ background: '#64748b' }}>Cancel</button>
+      </div>
 
-      {error && (
-        <p style={{ color: "red", marginBottom: "10px" }}>{error}</p>
-      )}
+      <div className="card" style={{ maxWidth: '600px', margin: '0 auto', padding: '30px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          <div>
+            <label style={labelStyle}>Medicine Name</label>
+            <input required style={inputStyle} value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="e.g. Paracetamol" />
+          </div>
 
-      <label>Medicine Name</label>
-      <input
-        type="text"
-        placeholder="e.g. Paracetamol"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        style={inputStyle}
-      />
+          <div style={{ display: 'flex', gap: '15px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Barcode</label>
+              <input style={inputStyle} value={formData.barcode} onChange={(e) => setFormData({...formData, barcode: e.target.value})} placeholder="Scan or type ID" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Dosage</label>
+              <input style={inputStyle} value={formData.dosage} onChange={(e) => setFormData({...formData, dosage: e.target.value})} placeholder="e.g. 500mg" />
+            </div>
+          </div>
 
-      <label>Barcode</label>
-      <input
-        type="text"
-        value={barcode}
-        onChange={(e) => setBarcode(e.target.value)}
-        style={inputStyle}
-      />
+          <div style={{ display: 'flex', gap: '15px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Day of Week</label>
+              <select style={inputStyle} value={formData.day} onChange={(e) => setFormData({...formData, day: e.target.value})}>
+                {days.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Specific Time</label>
+              <input type="time" style={inputStyle} value={formData.time} onChange={(e) => setFormData({...formData, time: e.target.value})} />
+            </div>
+          </div>
 
-      <label>Dosage</label>
-      <input
-        type="text"
-        placeholder="e.g. 500 mg"
-        value={dosage}
-        onChange={(e) => setDosage(e.target.value)}
-        style={inputStyle}
-      />
-
-      <label>Frequency</label>
-      <input
-        type="text"
-        placeholder="e.g. Twice a day"
-        value={frequency}
-        onChange={(e) => setFrequency(e.target.value)}
-        style={inputStyle}
-      />
-
-      <button onClick={handleSave} style={primaryBtn}>
-        Save Medicine
-      </button>
-
-      <button
-        onClick={() => navigate("/scan")}
-        style={secondaryBtn}
-      >
-        Scan Again
-      </button>
+          <button type="submit" className="primary-btn" disabled={isSaving} style={{ padding: '16px', fontSize: '16px' }}>
+            {isSaving ? "Saving..." : "Save to Household"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
 
-// Styles
-const inputStyle = {
-  width: "100%",
-  padding: "10px",
-  marginBottom: "12px",
-  borderRadius: "6px",
-  border: "1px solid #ccc",
-};
-
-const primaryBtn = {
-  width: "100%",
-  padding: "10px",
-  background: "#4caf50",
-  color: "#fff",
-  border: "none",
-  borderRadius: "6px",
-  cursor: "pointer",
-  marginBottom: "10px",
-};
-
-const secondaryBtn = {
-  width: "100%",
-  padding: "10px",
-  background: "#eee",
-  color: "#333",
-  border: "none",
-  borderRadius: "6px",
-  cursor: "pointer",
-};
+const labelStyle = { display: 'block', fontSize: '11px', fontWeight: '800', color: '#4f46e5', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' };
+const inputStyle = { width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '15px', outline: 'none', boxSizing: 'border-box' };

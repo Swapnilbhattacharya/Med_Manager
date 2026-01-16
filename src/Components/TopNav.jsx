@@ -3,8 +3,6 @@ import { auth } from "../services/firebase";
 import "./TopNav.css";
 
 export default function TopNav({ setView, currentView }) {
-  const handleLogout = () => auth.signOut();
-
   return (
     <nav className="top-nav">
       <div className="brand" onClick={() => setView("dashboard")} style={{ cursor: 'pointer' }}>
@@ -13,9 +11,9 @@ export default function TopNav({ setView, currentView }) {
 
       <div className="nav-links">
         <button className={currentView === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>🏠 Dashboard</button>
-        <button className={currentView === "scan" ? "active" : ""} onClick={() => setView("scan")}>📷 Scan</button>
         <button className={currentView === "calendar" ? "active" : ""} onClick={() => setView("calendar")}>📅 Calendar</button>
-        <button className="logout" onClick={handleLogout}>🚪 Logout</button>
+        <button className={currentView === "addMed" ? "active" : ""} onClick={() => setView("addMed")}>➕ Add Med</button>
+        <button className="logout" onClick={() => auth.signOut()}>🚪 Logout</button>
       </div>
     </nav>
   );
