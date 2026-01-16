@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { auth, db } from "../services/firebase"; 
+import { db } from "../services/firebase"; 
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { getUserMeds } from "../services/medService";
 
@@ -8,90 +8,76 @@ import ProgressRing from "../Components/ProgressRing";
 import MedicineCard from "../Components/MedicineCard";
 import Schedule from "../Components/Schedule";
 
-// Styling
 import "./Dashboard.css";
 
-export default function Dashboard({ user, setView }) {
+export default function Dashboard({ user, householdId, setView }) {
   const [household, setHousehold] = useState(null);
   const [meds, setMeds] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!user) return;
+    const loadData = async () => {
+      if (!householdId) {
+        setLoading(false);
+        return;
+      }
 
       try {
-        // 1. Fetch User Profile to check for Household ID
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          
-          if (userData.householdId) {
-            // 2. Fetch Household Details
-            const houseDoc = await getDoc(doc(db, "households", userData.householdId));
-            if (houseDoc.exists()) {
-              setHousehold({ id: houseDoc.id, ...houseDoc.data() });
-            }
-          }
+        // Fetch Household details
+        const houseDoc = await getDoc(doc(db, "households", householdId));
+        if (houseDoc.exists()) {
+          setHousehold({ id: houseDoc.id, ...houseDoc.data() });
         }
 
-        // 3. Fetch Medications (using your existing service)
-        const userMeds = await getUserMeds(user.uid);
-        setMeds(userMeds || []);
-
-      } catch (error) {
-        console.error("Error loading dashboard:", error);
+        // Fetch Meds
+        const data = await getUserMeds(householdId);
+        setMeds(data || []);
+      } catch (err) {
+        console.error("Dashboard Load Error:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDashboardData();
-  }, [user]);
+    loadData();
+  }, [householdId]);
 
-  // Handle Creating a New Household
   const handleCreateHousehold = async () => {
     try {
-      const houseRef = doc(db, "households", user.uid);
-      await setDoc(houseRef, {
-        name: `${user.email.split('@')[0]}'s Household`,
+      const newHouseRef = doc(db, "households", user.uid);
+      await setDoc(newHouseRef, {
+        name: `${user.email.split('@')[0]}'s House`,
         ownerId: user.uid,
         memberIds: [user.uid],
-        created_at: new Date()
+        createdAt: new Date()
       });
 
-      // Update user profile with the new Household ID
       await updateDoc(doc(db, "users", user.uid), {
         householdId: user.uid
       });
 
-      // Refresh data locally
       window.location.reload(); 
     } catch (err) {
-      console.error("Error creating household:", err);
+      alert("Failed to create household.");
     }
   };
 
-  if (loading) return <div className="dashboard-page" style={{textAlign: 'center', padding: '50px'}}><h2>Loading Dashboard...</h2></div>;
+  if (loading) return <div style={{textAlign:'center', padding:'50px'}}><h3>Loading...</h3></div>;
 
-  // --- CHOICE SCREEN (If no household exists) ---
-  if (!household) {
+  // --- VIEW A: New User Choice Screen ---
+  if (!householdId) {
     return (
       <div className="dashboard-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <div className="card" style={{ textAlign: "center", maxWidth: '400px' }}>
-          <h1>Welcome! 👋</h1>
-          <p className="subtitle">You haven't joined a household yet. Start by creating one or joining an existing one.</p>
+        <div className="card" style={{ textAlign: "center", maxWidth: '450px', padding: '40px' }}>
+          <div style={{fontSize: '50px'}}>🏡</div>
+          <h2 style={{margin: '15px 0'}}>Setup Your Household</h2>
+          <p className="subtitle">You need a household to start managing medications with your family.</p>
           
-          <div style={{ display: "flex", flexDirection: 'column', gap: "12px", marginTop: "20px" }}>
+          <div style={{ display: "flex", flexDirection: 'column', gap: "12px", marginTop: "25px" }}>
             <button className="primary-btn" onClick={handleCreateHousehold}>
               🏠 Create New Household
             </button>
-            <button 
-              className="primary-btn" 
-              style={{ background: '#4caf50' }} 
-              onClick={() => setView("join")} // Changed from window.location
-            >
+            <button className="primary-btn" style={{ background: '#4caf50' }} onClick={() => setView("join")}>
               🤝 Join Existing Household
             </button>
           </div>
@@ -100,50 +86,47 @@ export default function Dashboard({ user, setView }) {
     );
   }
 
-  // --- MAIN DASHBOARD (If household exists) ---
+  // --- VIEW B: Active Household Dashboard ---
   const takenCount = meds.filter(m => m.taken).length;
 
   return (
     <div className="dashboard-page">
-      {/* HEADER */}
       <div className="dashboard-header">
         <div>
           <h2>Welcome, {user.email.split('@')[0]} 👋</h2>
           <p className="subtitle">
-            <strong>Household:</strong> {household.name} • {meds.length - takenCount} meds left today
+            <strong>Household:</strong> {household?.name || "Active Session"}
           </p>
         </div>
-        <button className="primary-btn" onClick={() => setView("scan")}>
-          + Scan New
+        <button className="primary-btn" onClick={() => setView("addMed")}>
+          + Add Medicine
         </button>
       </div>
 
-      {/* DAILY PROGRESS */}
       <div className="card">
-        <h3>Daily Progress</h3>
-        <ProgressRing taken={takenCount} total={meds.length || 0} />
+        <h3>Daily Adherence</h3>
+        <ProgressRing taken={takenCount} total={meds.length} />
       </div>
 
-      {/* MY MEDICATIONS */}
       <div className="card">
-        <h3>My Medications</h3>
-        {meds.length === 0 ? (
-          <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>No medications added to this household yet.</p>
-        ) : (
-          <div className="med-grid">
-            {meds.map(med => (
+        <h3>Current Medications</h3>
+        <div className="med-grid">
+          {meds.length > 0 ? (
+            meds.map(med => (
               <MedicineCard 
                 key={med.id} 
                 name={med.name} 
-                dose={med.dose || med.dosage} 
-                status={med.taken ? "Taken" : "Active"} 
+                dose={med.dosage || med.dose} 
+                status={med.taken ? "Taken" : "Pending"} 
               />
-            ))}
-          </div>
-        )}
+            ))
+          ) : (
+            <p style={{color: '#94a3b8'}}>No meds added yet. Click "+ Add Medicine" to start.</p>
+          )}
+        </div>
       </div>
 
-      {/* TODAY'S SCHEDULE */}
+      {/* Pass meds to the schedule list */}
       <Schedule meds={meds} />
     </div>
   );
