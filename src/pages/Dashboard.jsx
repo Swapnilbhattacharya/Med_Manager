@@ -11,6 +11,15 @@ export default function Dashboard({ user, householdId, setView }) {
   const [loading, setLoading] = useState(true);
   const userName = user?.email?.split('@')[0] || "User";
 
+  // --- DYNAMIC GREETING LOGIC ---
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    return "Good Evening";
+  };
+  const greeting = getGreeting();
+
   // Get current day name (e.g., "Saturday")
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const todayName = dayNames[new Date().getDay()];
@@ -20,7 +29,6 @@ export default function Dashboard({ user, householdId, setView }) {
       if (!householdId) { setLoading(false); return; }
       try {
         const data = await getUserMeds(householdId);
-        // Ensure we only store medications meant for TODAY
         const filteredData = (data || []).filter(m => m.day === todayName);
         setMeds(filteredData);
       } catch (err) { 
@@ -30,7 +38,7 @@ export default function Dashboard({ user, householdId, setView }) {
       }
     };
     loadData();
-  }, [householdId, todayName]); // Added todayName as dependency
+  }, [householdId, todayName]);
 
   const toggleMedStatus = async (medId, currentStatus) => {
     if (currentStatus) return; 
@@ -39,7 +47,6 @@ export default function Dashboard({ user, householdId, setView }) {
     setMeds(updatedMeds);
 
     try {
-      // Corrected collection path to "medicines" to match your medService logic
       const medRef = doc(db, "households", householdId, "medicines", medId);
       await updateDoc(medRef, { 
         taken: true,
@@ -60,7 +67,8 @@ export default function Dashboard({ user, householdId, setView }) {
     <div className="dashboard-wrapper">
       <header className="dash-header">
         <div className="welcome-area">
-          <h1>Good Morning, <span className="highlight-name">{userName}</span> ✨</h1>
+          {/* UPDATED HEADER LINE */}
+          <h1>{greeting}, <span className="highlight-name">{userName}</span> ✨</h1>
           <p>You've completed <span className="count-tag">{takenCount}/{totalCount}</span> doses today.</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
