@@ -9,7 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Calendar from "./pages/Calendar"; 
 import Setup from "./pages/Join"; 
 import AddMed from "./pages/AddMed";
-import AddInventory from "./pages/AddInventory"; // 1. IMPORT YOUR NEW PAGE
+import AddInventory from "./pages/AddInventory"; 
 import TopNav from "./Components/TopNav"; 
 import HouseholdFooter from "./Components/HouseholdFooter";
 
@@ -34,6 +34,7 @@ export default function App() {
         });
         return () => unsubDoc();
       } else {
+        setHouseholdId(null);
         setLoading(false);
       }
     });
@@ -48,28 +49,22 @@ export default function App() {
   return (
     <div className="app-main-layout" style={{ minHeight: "100vh", background: "#f8fbff" }}>
       <TopNav setView={setView} currentView={currentView} />
-
-      <main>
+      <main className="content-container" style={{ padding: '20px' }}>
         {currentView === "setup" && <Setup user={user} setView={setView} />}
-        
         {currentView === "dashboard" && (
           <Dashboard user={user} householdId={householdId} setView={setView} />
         )}
-        
         {currentView === "calendar" && (
           <Calendar user={user} householdId={householdId} setView={setView} />
         )}
-
         {currentView === "addMed" && (
           <AddMed user={user} householdId={householdId} setView={setView} />
         )}
-
-        {/* 2. ADD THE INVENTORY VIEW CASE */}
+        {/* NEW: Passing householdId to isolation inventory by family */}
         {currentView === "inventory" && (
-          <AddInventory user={user} householdId={householdId} setView={setView} />
+          <AddInventory householdId={householdId} setView={setView} />
         )}
       </main>
-
       <HouseholdFooter householdId={householdId} />
     </div>
   );

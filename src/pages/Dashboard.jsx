@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../services/firebase"; 
-import { doc, updateDoc, deleteDoc } from "firebase/firestore"; 
+import { 
+  doc, 
+  updateDoc, 
+  deleteDoc, 
+  serverTimestamp, 
+  collection, 
+  query, 
+  where, 
+  getDocs 
+} from "firebase/firestore"; 
 import { getUserMeds } from "../services/medService";
 import { getMedicineAlternative } from "../services/aiService"; 
 import MedicineCard from "../Components/MedicineCard";
@@ -11,11 +20,10 @@ import "./Dashboard.css";
 export default function Dashboard({ user, householdId, setView }) {
   const [meds, setMeds] = useState([]); 
   const [loading, setLoading] = useState(true);
-  const [isChatOpen, setIsChatOpen] = useState(false); 
+  const [isChatOpen, setIsChatOpen] = useState(false);
   
   // AI State
   const [aiQuery, setAiQuery] = useState("");
-  // Initial bot message is kept for UI, but filtered out in service before sending to API
   const [aiHistory, setAiHistory] = useState([
     { role: 'bot', text: "Hello! I'm your AI Medical Assistant. Need a substitute or info about your meds?" }
   ]);
@@ -35,7 +43,11 @@ export default function Dashboard({ user, householdId, setView }) {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!householdId) { setLoading(false); return; }
+      if (!householdId) { 
+        console.warn("Dashboard: Waiting for householdId...");
+        setLoading(false); 
+        return; 
+      }
       try {
         const data = await getUserMeds(householdId);
         const filteredData = (data || []).filter(m => m.day === todayName);
@@ -49,52 +61,81 @@ export default function Dashboard({ user, householdId, setView }) {
     loadData();
   }, [householdId, todayName]);
 
-  /**
-   * UPDATED: handleAiConsult
-   * Now aligns with the 'fresh' aiService.js using Gemini 2.0 Flash logic
-   */
   const handleAiConsult = async () => {
     if (!aiQuery.trim()) return;
-    
-    const currentMsg = aiQuery;
-    const userMsg = { role: 'user', text: currentMsg };
-    
-    // 1. Optimistically update UI
+    const userMsg = { role: 'user', text: aiQuery };
     setAiHistory(prev => [...prev, userMsg]);
     setAiQuery("");
     setIsAiLoading(true);
-
     try {
-      // 2. Pass current message AND history to service
-      // The service will filter the initial bot greeting automatically
-      const response = await getMedicineAlternative(currentMsg, aiHistory);
-      
-      // 3. Update UI with AI response
+      const response = await getMedicineAlternative(aiQuery);
       setAiHistory(prev => [...prev, { role: 'bot', text: response }]);
     } catch (err) {
-      console.error(err);
-      setAiHistory(prev => [...prev, { role: 'bot', text: "Connection error. Please check your internet or restart the dev server." }]);
-    } finally {
-      setIsAiLoading(false);
+      setAiHistory(prev => [...prev, { role: 'bot', text: "Sorry, I'm having trouble connecting right now." }]);
+    }
+    setIsAiLoading(false);
+  };
+
+  /**
+   * Updated Toggle Logic:
+   * 1. Marks medicine as taken in the schedule.
+   * 2. Finds matching medicine in the household inventory sub-collection.
+   * 3. Decrements quantity by 1 if stock is available.
+   */
+  const toggleMedStatus = async (medId, currentStatus, medName) => {
+    if (currentStatus || medId === "_") return; 
+
+    // Update UI State immediately
+    const updatedMeds = meds.map(m => m.id === medId ? { ...m, taken: true } : m);
+    setMeds(updatedMeds);
+
+    try {
+      // Step A: Update the schedule document
+      const medRef = doc(db, "households", householdId, "medicines", medId);
+      await updateDoc(medRef, { 
+        taken: true, 
+        status: "taken",
+        lastUpdated: serverTimestamp() 
+      });
+
+      // Step B: Inventory Reduction Logic
+      const inventoryRef = collection(db, "households", householdId, "inventory");
+      const q = query(inventoryRef, where("medicineName", "==", medName));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        // Find the first batch with available stock
+        const stockDoc = querySnapshot.docs[0];
+        const stockRef = doc(db, "households", householdId, "inventory", stockDoc.id);
+        const currentQty = stockDoc.data().quantity || 0;
+
+        if (currentQty > 0) {
+          await updateDoc(stockRef, {
+            quantity: currentQty - 1,
+            lastUpdated: serverTimestamp()
+          });
+        } else {
+          console.warn(`Insufficient stock for ${medName}`);
+        }
+      }
+    } catch (err) { 
+      console.error("Update failed:", err);
+      setMeds(meds); // Revert UI if DB fails
     }
   };
 
-  const toggleMedStatus = async (medId, currentStatus) => {
-    if (currentStatus) return; 
-    const updatedMeds = meds.map(m => m.id === medId ? { ...m, taken: true } : m);
-    setMeds(updatedMeds);
-    try {
-      const medRef = doc(db, "households", householdId, "medicines", medId);
-      await updateDoc(medRef, { taken: true, status: "taken" });
-    } catch (err) { console.error(err); }
-  };
-
   const handleDelete = async (medId) => {
+    if (medId === "_") {
+      alert("Note: This is an invalid system document. Cleaning it up now.");
+    }
+
     if (window.confirm("Remove this medication?")) {
       try {
         await deleteDoc(doc(db, "households", householdId, "medicines", medId));
         setMeds(prev => prev.filter(m => m.id !== medId));
-      } catch (err) { console.error("Delete failed:", err); }
+      } catch (err) { 
+        console.error("Delete failed:", err); 
+      }
     }
   };
 
@@ -103,7 +144,6 @@ export default function Dashboard({ user, householdId, setView }) {
   const takenCount = meds.filter(m => m.taken || m.status === "taken").length;
   const totalCount = meds.length;
   const pendingCount = totalCount - takenCount;
-  const showEmergency = pendingCount > 2;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="dashboard-wrapper">
@@ -114,7 +154,7 @@ export default function Dashboard({ user, householdId, setView }) {
         </div>
         
         <div className="header-actions">
-          <button className="btn-secondary" onClick={() => setView("inventory")}>📦 Inventory</button>
+          <button className="btn-secondary" onClick={() => setView("inventory")}>📦 Stock Manager</button>
           <button className="btn-secondary" onClick={() => setView("calendar")}>🗓️ Calendar</button>
           <button className="btn-add-main" onClick={() => setView("addMed")}>+ Add Medicine</button>
         </div>
@@ -135,17 +175,19 @@ export default function Dashboard({ user, householdId, setView }) {
         <main className="schedule-panel glass-inner">
           <div className="panel-header">
             <h3>Current Schedule</h3>
-            <span className="today-date">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            <span className="today-date">
+              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
           </div>
           <div className="med-grid">
             {meds.length > 0 ? (
               meds.map(med => (
                 <MedicineCard 
                   key={med.id} 
-                  name={med.name} 
-                  dose={med.dosage || med.dose} 
+                  name={med.name || "Unknown Medicine"} 
+                  dose={med.dosage || med.dose || "N/A"} 
                   status={med.taken || med.status === "taken" ? "Taken" : "Pending"} 
-                  onToggle={() => toggleMedStatus(med.id, med.taken)} 
+                  onToggle={() => toggleMedStatus(med.id, med.taken, med.name)} 
                   onDelete={() => handleDelete(med.id)}
                 />
               ))
@@ -200,19 +242,6 @@ export default function Dashboard({ user, householdId, setView }) {
               </div>
             </motion.div>
           </>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showEmergency && (
-          <motion.div 
-            initial={{ y: 100, x: '-50%' }} 
-            animate={{ y: 0, x: '-50%' }} 
-            exit={{ y: 100, x: '-50%' }}
-            className="emergency-toast"
-          >
-             🚨 URGENT: {pendingCount} doses are still pending!
-          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
