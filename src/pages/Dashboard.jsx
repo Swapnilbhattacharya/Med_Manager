@@ -37,7 +37,6 @@ export default function Dashboard({ user, householdId, setView }) {
       if (!householdId) { setLoading(false); return; }
       try {
         const data = await getUserMeds(householdId);
-        // FEATURE PRESERVED: Day-wise filtering for the dashboard view
         const filteredData = (data || []).filter(m => m.day === todayName);
         setMeds(filteredData);
       } catch (err) {
@@ -49,19 +48,30 @@ export default function Dashboard({ user, householdId, setView }) {
     loadData();
   }, [householdId, todayName]);
 
+  /**
+   * UPDATED: Passing history to the AI service
+   * This allows Gemini to maintain context throughout the chat.
+   */
   const handleAiConsult = async () => {
     if (!aiQuery.trim()) return;
+    
     const userMsg = { role: 'user', text: aiQuery };
+    const currentQuery = aiQuery; // Capture query before clearing input
+    
+    // Optimistically update UI with user message
     setAiHistory(prev => [...prev, userMsg]);
     setAiQuery("");
     setIsAiLoading(true);
+
     try {
-      const response = await getMedicineAlternative(aiQuery);
+      // PASSING aiHistory: Now Gemini "remembers" previous turns
+      const response = await getMedicineAlternative(currentQuery, aiHistory);
       setAiHistory(prev => [...prev, { role: 'bot', text: response }]);
     } catch (err) {
-      setAiHistory(prev => [...prev, { role: 'bot', text: "Sorry, I'm having trouble connecting right now." }]);
+      setAiHistory(prev => [...prev, { role: 'bot', text: "Sorry, I'm having trouble connecting to my full brain right now." }]);
+    } finally {
+      setIsAiLoading(false);
     }
-    setIsAiLoading(false);
   };
 
   const toggleMedStatus = async (medId, currentStatus) => {
@@ -88,8 +98,6 @@ export default function Dashboard({ user, householdId, setView }) {
   const takenCount = meds.filter(m => m.taken || m.status === "taken").length;
   const totalCount = meds.length;
   const pendingCount = totalCount - takenCount;
-  
-  // LOGIC MERGED: Show emergency toast if more than 2 doses are pending
   const showEmergency = pendingCount > 2;
 
   return (
@@ -101,7 +109,6 @@ export default function Dashboard({ user, householdId, setView }) {
         </div>
         
         <div className="header-actions">
-          {/* NAVIGATION MERGED: Added Inventory button */}
           <button className="btn-secondary" onClick={() => setView("inventory")}>📦 Inventory</button>
           <button className="btn-secondary" onClick={() => setView("calendar")}>🗓️ Calendar</button>
           <button className="btn-add-main" onClick={() => setView("addMed")}>+ Add Medicine</button>
@@ -144,12 +151,10 @@ export default function Dashboard({ user, householdId, setView }) {
         </main>
       </div>
 
-      {/* FLOATING CHAT TOGGLE BUTTON */}
       <button className="chat-toggle-btn" onClick={() => setIsChatOpen(true)}>
         🤖 Ask Gemini
       </button>
 
-      {/* SLIDE-OUT SIDE PANEL */}
       <AnimatePresence>
         {isChatOpen && (
           <>
@@ -193,7 +198,6 @@ export default function Dashboard({ user, householdId, setView }) {
         )}
       </AnimatePresence>
 
-      {/* EMERGENCY TOAST MERGED: Positioned safely above the nav bar footer */}
       <AnimatePresence>
         {showEmergency && (
           <motion.div 
