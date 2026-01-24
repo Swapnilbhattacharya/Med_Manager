@@ -11,6 +11,7 @@ import "./Dashboard.css";
 export default function Dashboard({ user, householdId, setView }) {
   const [meds, setMeds] = useState([]); 
   const [loading, setLoading] = useState(true);
+  const [isChatOpen, setIsChatOpen] = useState(false); // Toggle state for side panel
   
   // AI State
   const [aiQuery, setAiQuery] = useState("");
@@ -21,7 +22,6 @@ export default function Dashboard({ user, householdId, setView }) {
 
   const userName = user?.email?.split('@')[0] || "User";
 
-  // Dynamic Greeting Logic
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good Morning";
@@ -37,7 +37,6 @@ export default function Dashboard({ user, householdId, setView }) {
       if (!householdId) { setLoading(false); return; }
       try {
         const data = await getUserMeds(householdId);
-        // FEATURE PRESERVED: Day-wise filtering
         const filteredData = (data || []).filter(m => m.day === todayName);
         setMeds(filteredData);
       } catch (err) {
@@ -69,7 +68,6 @@ export default function Dashboard({ user, householdId, setView }) {
     const updatedMeds = meds.map(m => m.id === medId ? { ...m, taken: true } : m);
     setMeds(updatedMeds);
     try {
-      // FEATURE PRESERVED: Firestore update
       const medRef = doc(db, "households", householdId, "medicines", medId);
       await updateDoc(medRef, { taken: true, status: "taken" });
     } catch (err) { console.error(err); }
@@ -78,7 +76,6 @@ export default function Dashboard({ user, householdId, setView }) {
   const handleDelete = async (medId) => {
     if (window.confirm("Remove this medication?")) {
       try {
-        // FEATURE PRESERVED: Deletion logic
         await deleteDoc(doc(db, "households", householdId, "medicines", medId));
         setMeds(prev => prev.filter(m => m.id !== medId));
       } catch (err) { console.error("Delete failed:", err); }
@@ -92,34 +89,20 @@ export default function Dashboard({ user, householdId, setView }) {
   const pendingCount = totalCount - takenCount;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }}
-      className="dashboard-wrapper"
-    >
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="dashboard-wrapper">
       <header className="dash-header">
-        <motion.div 
-          initial={{ x: -50 }} 
-          animate={{ x: 0 }} 
-          className="welcome-area"
-        >
+        <div className="welcome-area">
           <h1>{getGreeting()}, <span className="highlight-name">{userName}</span> ✨</h1>
           <p>Schedule for <span className="count-tag">{todayName}</span></p>
-        </motion.div>
+        </div>
         
-        {/* FIX APPLIED: Button alignment wrapper */}
         <div className="header-actions">
-          <button className="btn-secondary" onClick={() => setView("calendar")}>
-            🗓️ Calendar
-          </button>
-          <button className="btn-add-main" onClick={() => setView("addMed")}>
-            + Add Medicine
-          </button>
+          <button className="btn-secondary" onClick={() => setView("calendar")}>🗓️ Calendar</button>
+          <button className="btn-add-main" onClick={() => setView("addMed")}>+ Add Medicine</button>
         </div>
       </header>
 
-      <div className="main-grid">
-        {/* LEFT PANEL: Progress & AI */}
+      <div className="main-grid" style={{ gridTemplateColumns: '320px 1fr' }}>
         <aside className="left-panel">
           <motion.div whileHover={{ scale: 1.02 }} className="glass-inner adherence-box">
             <h3 className="panel-title">Daily Adherence</h3>
@@ -129,73 +112,80 @@ export default function Dashboard({ user, householdId, setView }) {
                <div className="mini-box"><strong>{takenCount}</strong><p>Taken</p></div>
             </div>
           </motion.div>
-
-          {/* FIX APPLIED: Refined AI Consultant layout */}
-          <div className="ai-chat-card glass-inner">
-            <h4 className="ai-title">🤖 Gemini Consultant</h4>
-            <div className="chat-window">
-              <AnimatePresence initial={false}>
-                {aiHistory.map((msg, i) => (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    key={i} 
-                    className={`chat-bubble ${msg.role}`}
-                  >
-                    {msg.text}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              {isAiLoading && <p className="loading-text">Thinking...</p>}
-            </div>
-            <div className="chat-input-area">
-              <input 
-                value={aiQuery} 
-                onChange={(e) => setAiQuery(e.target.value)} 
-                onKeyPress={(e) => e.key === 'Enter' && handleAiConsult()}
-                placeholder="Ask about substitutes..." 
-              />
-              <button onClick={handleAiConsult}>Send</button>
-            </div>
-          </div>
         </aside>
 
-        {/* RIGHT PANEL: The Med List */}
         <main className="schedule-panel glass-inner">
           <div className="panel-header">
             <h3>Current Schedule</h3>
             <span className="today-date">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
           </div>
-
-          <motion.div layout className="med-grid">
+          <div className="med-grid">
             {meds.length > 0 ? (
               meds.map(med => (
-                <motion.div layout key={med.id} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-                  <MedicineCard 
-                    name={med.name} 
-                    dose={med.dosage || med.dose} 
-                    status={med.taken || med.status === "taken" ? "Taken" : "Pending"} 
-                    onToggle={() => toggleMedStatus(med.id, med.taken)} 
-                    onDelete={() => handleDelete(med.id)}
-                  />
-                </motion.div>
+                <MedicineCard 
+                  key={med.id} 
+                  name={med.name} 
+                  dose={med.dosage || med.dose} 
+                  status={med.taken || med.status === "taken" ? "Taken" : "Pending"} 
+                  onToggle={() => toggleMedStatus(med.id, med.taken)} 
+                  onDelete={() => handleDelete(med.id)}
+                />
               ))
             ) : (
               <div className="empty-state">No meds for {todayName}! Take a break. 🌿</div>
             )}
-          </motion.div>
+          </div>
         </main>
       </div>
 
-      {pendingCount > 2 && (
-        <motion.div 
-          initial={{ y: 100 }} 
-          animate={{ y: 0 }} 
-          className="emergency-toast"
-        >
-          🚨 {pendingCount} doses are still pending!
-        </motion.div>
-      )}
+      {/* FLOATING CHAT TOGGLE BUTTON */}
+      <button className="chat-toggle-btn" onClick={() => setIsChatOpen(true)}>
+        🤖 Ask Gemini
+      </button>
+
+      {/* SLIDE-OUT SIDE PANEL */}
+      <AnimatePresence>
+        {isChatOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              className="chat-overlay" 
+              onClick={() => setIsChatOpen(false)} 
+            />
+            <motion.div 
+              initial={{ x: '100%' }} 
+              animate={{ x: 0 }} 
+              exit={{ x: '100%' }} 
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="chat-side-panel glass-inner"
+            >
+              <div className="panel-header-ai">
+                <h4 className="ai-title">🤖 Gemini Consultant</h4>
+                <button className="close-panel-btn" onClick={() => setIsChatOpen(false)}>✕</button>
+              </div>
+              <div className="chat-window">
+                {aiHistory.map((msg, i) => (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={i} className={`chat-bubble ${msg.role}`}>
+                    {msg.text}
+                  </motion.div>
+                ))}
+                {isAiLoading && <p className="loading-text">Thinking...</p>}
+              </div>
+              <div className="chat-input-area">
+                <input 
+                  value={aiQuery} 
+                  onChange={(e) => setAiQuery(e.target.value)} 
+                  onKeyPress={(e) => e.key === 'Enter' && handleAiConsult()}
+                  placeholder="Ask about substitutes..." 
+                />
+                <button onClick={handleAiConsult}>Send</button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
