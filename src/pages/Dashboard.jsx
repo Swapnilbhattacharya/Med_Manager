@@ -15,6 +15,7 @@ export default function Dashboard({ user, householdId, setView }) {
   
   // AI State
   const [aiQuery, setAiQuery] = useState("");
+  // Initial bot message is kept for UI, but filtered out in service before sending to API
   const [aiHistory, setAiHistory] = useState([
     { role: 'bot', text: "Hello! I'm your AI Medical Assistant. Need a substitute or info about your meds?" }
   ]);
@@ -49,26 +50,30 @@ export default function Dashboard({ user, householdId, setView }) {
   }, [householdId, todayName]);
 
   /**
-   * UPDATED: Passing history to the AI service
-   * This allows Gemini to maintain context throughout the chat.
+   * UPDATED: handleAiConsult
+   * Now aligns with the 'fresh' aiService.js using Gemini 2.0 Flash logic
    */
   const handleAiConsult = async () => {
     if (!aiQuery.trim()) return;
     
-    const userMsg = { role: 'user', text: aiQuery };
-    const currentQuery = aiQuery; // Capture query before clearing input
+    const currentMsg = aiQuery;
+    const userMsg = { role: 'user', text: currentMsg };
     
-    // Optimistically update UI with user message
+    // 1. Optimistically update UI
     setAiHistory(prev => [...prev, userMsg]);
     setAiQuery("");
     setIsAiLoading(true);
 
     try {
-      // PASSING aiHistory: Now Gemini "remembers" previous turns
-      const response = await getMedicineAlternative(currentQuery, aiHistory);
+      // 2. Pass current message AND history to service
+      // The service will filter the initial bot greeting automatically
+      const response = await getMedicineAlternative(currentMsg, aiHistory);
+      
+      // 3. Update UI with AI response
       setAiHistory(prev => [...prev, { role: 'bot', text: response }]);
     } catch (err) {
-      setAiHistory(prev => [...prev, { role: 'bot', text: "Sorry, I'm having trouble connecting to my full brain right now." }]);
+      console.error(err);
+      setAiHistory(prev => [...prev, { role: 'bot', text: "Connection error. Please check your internet or restart the dev server." }]);
     } finally {
       setIsAiLoading(false);
     }
