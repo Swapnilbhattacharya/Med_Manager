@@ -1,12 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
 
-/* Base Styles */
 .dashboard-wrapper {
-  background-color: #f8fafc;
+  background-color: #f8fafc; /* Professional off-white background */
   min-height: 100vh;
   padding: 40px 20px;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  color: #1e293b;
 }
 
 .dash-header {
@@ -17,13 +15,8 @@
   align-items: center;
 }
 
-.highlight-name { 
-  color: #4f46e5; 
-  font-weight: 800; 
-  font-size: 2rem;
-}
+.highlight-name { color: #4f46e5; text-transform: capitalize; }
 
-/* Layout Grids */
 .main-grid {
   max-width: 1200px;
   margin: 0 auto;
@@ -32,44 +25,52 @@
   gap: 30px;
 }
 
-.calendar-grid-layout {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 25px;
-}
-
-/* Glass Card Component */
+/* Glass Cards */
 .glass-inner, .schedule-panel, .professional-form-card {
   background: white;
   padding: 30px;
   border-radius: 28px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 10px 25px rgba(0,0,0,0.03);
-  transition: transform 0.2s ease;
 }
 
-/* Form Styling & Dropdowns */
-.form-container-centered {
-  display: flex;
-  justify-content: center;
-  padding: 20px 0;
-}
+.schedule-panel { flex: 1; }
 
-.professional-form-card {
-  width: 100%;
-  max-width: 600px;
+.med-grid {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 15px;
+  margin-top: 25px;
 }
 
-.form-row-double {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+/* Medicine Card Styles */
+.med-glass-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 20px;
+  transition: all 0.3s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
+
+.med-main-info { display: flex; align-items: center; gap: 15px; }
+
+.med-icon-wrapper {
+  width: 50px; height: 50px;
+  background: #f1f5f9;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 14px; font-size: 20px;
+}
+
+.is-complete { background: #f0fdf4; border-color: #10b981; }
+
+/* Form Styles for AddMed */
+.form-container-centered { display: flex; justify-content: center; }
+
+.professional-form-card { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 20px; }
+
+.form-row-double { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 
 .pro-input {
   background: #f8fafc;
@@ -77,89 +78,54 @@
   padding: 14px;
   border-radius: 14px;
   font-family: inherit;
-  font-size: 15px;
-  color: #1e293b;
-  transition: all 0.2s ease;
-  width: 100%;
-  box-sizing: border-box;
-  appearance: none; /* Removes default browser dropdown arrow */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234f46e5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 16px;
-}
-
-.pro-input:focus {
-  outline: none;
-  border-color: #4f46e5;
-  background-color: white;
-  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-}
-
-/* Buttons */
-.btn-add-main, .btn-save-main {
-  background: #4f46e5;
-  color: white;
-  border: none;
-  padding: 16px 28px;
-  border-radius: 16px;
-  font-weight: 700;
-  font-size: 16px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-align: center;
-}
-
-.btn-add-main:hover, .btn-save-main:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2);
-  background: #4338ca;
-}
-
-.btn-cancel {
-  background: #f1f5f9;
-  color: #64748b;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 12px;
-  font-weight: 600;
-  cursor: pointer;
   transition: 0.2s;
 }
 
-.btn-cancel:hover {
-  background: #e2e8f0;
-  color: #475569;
+.pro-input:focus { outline: none; border-color: #4f46e5; background: white; }
+
+/* Buttons */
+.btn-add-main, .btn-save-main {
+  background: #4f46e5; color: white; border: none;
+  padding: 14px 28px; border-radius: 14px;
+  font-weight: 700; cursor: pointer; transition: 0.3s;
 }
 
-/* Calendar Day Styles */
-.day-title {
-  color: #4f46e5;
-  font-weight: 800;
-  font-size: 1.2rem;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #f1f5f9;
+.btn-add-main:hover, .btn-save-main:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2); }
+
+.btn-cancel { background: #f1f5f9; color: #64748b; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; }
+
+.ai-chat-box {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 10px;
+  margin-top: 20px;
 }
 
-.calendar-item-box {
+.chat-display {
+  height: 200px;
+  overflow-y: auto;
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px;
-  background: #f8fafc;
-  border-radius: 16px;
-  margin-bottom: 10px;
-  border-left: 4px solid #4f46e5;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
 }
 
-/* Inventory Cards */
-.med-glass-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 20px;
-  background: white;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.bubble {
+  padding: 8px 12px;
+  border-radius: 15px;
+  font-size: 0.85rem;
+  max-width: 80%;
+}
+
+.bubble.ai { background: #6c5ce7; color: white; align-self: flex-start; }
+.bubble.user { background: #ffffff1a; color: white; align-self: flex-end; }
+
+.chat-input { display: flex; gap: 5px; margin-top: 10px; }
+.chat-input input { 
+  flex: 1; 
+  background: #1a1a1a; 
+  border: 1px solid #333; 
+  color: white; 
+  padding: 5px; 
+  border-radius: 5px; 
 }
