@@ -11,7 +11,7 @@ import "./Dashboard.css";
 export default function Dashboard({ user, householdId, setView }) {
   const [meds, setMeds] = useState([]); 
   const [loading, setLoading] = useState(true);
-  const [isChatOpen, setIsChatOpen] = useState(false); // Toggle state for side panel
+  const [isChatOpen, setIsChatOpen] = useState(false); 
   
   // AI State
   const [aiQuery, setAiQuery] = useState("");
@@ -37,6 +37,7 @@ export default function Dashboard({ user, householdId, setView }) {
       if (!householdId) { setLoading(false); return; }
       try {
         const data = await getUserMeds(householdId);
+        // FEATURE PRESERVED: Day-wise filtering for the dashboard view
         const filteredData = (data || []).filter(m => m.day === todayName);
         setMeds(filteredData);
       } catch (err) {
@@ -87,6 +88,9 @@ export default function Dashboard({ user, householdId, setView }) {
   const takenCount = meds.filter(m => m.taken || m.status === "taken").length;
   const totalCount = meds.length;
   const pendingCount = totalCount - takenCount;
+  
+  // LOGIC MERGED: Show emergency toast if more than 2 doses are pending
+  const showEmergency = pendingCount > 2;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="dashboard-wrapper">
@@ -97,6 +101,8 @@ export default function Dashboard({ user, householdId, setView }) {
         </div>
         
         <div className="header-actions">
+          {/* NAVIGATION MERGED: Added Inventory button */}
+          <button className="btn-secondary" onClick={() => setView("inventory")}>📦 Inventory</button>
           <button className="btn-secondary" onClick={() => setView("calendar")}>🗓️ Calendar</button>
           <button className="btn-add-main" onClick={() => setView("addMed")}>+ Add Medicine</button>
         </div>
@@ -184,6 +190,20 @@ export default function Dashboard({ user, householdId, setView }) {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* EMERGENCY TOAST MERGED: Positioned safely above the nav bar footer */}
+      <AnimatePresence>
+        {showEmergency && (
+          <motion.div 
+            initial={{ y: 100, x: '-50%' }} 
+            animate={{ y: 0, x: '-50%' }} 
+            exit={{ y: 100, x: '-50%' }}
+            className="emergency-toast"
+          >
+             🚨 URGENT: {pendingCount} doses are still pending!
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>

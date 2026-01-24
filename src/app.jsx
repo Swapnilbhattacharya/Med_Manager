@@ -7,8 +7,9 @@ import { doc, onSnapshot } from "firebase/firestore";
 import Login from "./pages/login"; 
 import Dashboard from "./pages/Dashboard"; 
 import Calendar from "./pages/Calendar"; 
-import Setup from "./pages/Join"; // We will make this the combined Setup page
+import Setup from "./pages/Join"; 
 import AddMed from "./pages/AddMed";
+import AddInventory from "./pages/AddInventory"; // 1. IMPORT YOUR NEW PAGE
 import TopNav from "./Components/TopNav"; 
 import HouseholdFooter from "./Components/HouseholdFooter";
 
@@ -22,13 +23,12 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // Real-time listener for user data
         const userRef = doc(db, "users", currentUser.uid);
         const unsubDoc = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists() && docSnap.data().householdId) {
             setHouseholdId(docSnap.data().householdId);
           } else {
-            setHouseholdId(null); // Force setup view if ID is missing
+            setHouseholdId(null); 
           }
           setLoading(false);
         });
@@ -43,7 +43,6 @@ export default function App() {
   if (loading) return <div className="loading-screen"><h2>💊 Syncing...</h2></div>;
   if (!user) return <Login />;
 
-  // AUTO-REDIRECT: If logged in but no household, show Setup screen
   const currentView = !householdId ? "setup" : view;
 
   return (
@@ -63,6 +62,11 @@ export default function App() {
 
         {currentView === "addMed" && (
           <AddMed user={user} householdId={householdId} setView={setView} />
+        )}
+
+        {/* 2. ADD THE INVENTORY VIEW CASE */}
+        {currentView === "inventory" && (
+          <AddInventory user={user} householdId={householdId} setView={setView} />
         )}
       </main>
 
