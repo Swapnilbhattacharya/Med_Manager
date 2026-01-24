@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { db } from "../services/firebase";
 import { collection, addDoc } from "firebase/firestore";
+import { motion } from "framer-motion";
+import "./Dashboard.css";
 
 export default function AddMed({ householdId, setView }) {
   const [medName, setMedName] = useState("");
@@ -9,7 +11,7 @@ export default function AddMed({ householdId, setView }) {
   const [selectedDays, setSelectedDays] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   const toggleDay = (day) => {
     setSelectedDays(prev => 
@@ -26,17 +28,21 @@ export default function AddMed({ householdId, setView }) {
 
     setLoading(true);
     try {
-      // Direct subcollection targeting for global sync
-      const medsRef = collection(db, "households", householdId, "medications");
-      await addDoc(medsRef, {
-        name: medName,
-        dosage: dosage,
-        time: time,
-        days: selectedDays, // The array needed for Calendar filtering
-        taken: false,
-        createdAt: new Date()
-      });
-      setView("dashboard"); // Redirect refreshes the global state
+      const medsRef = collection(db, "households", householdId, "medicines");
+      const savePromises = selectedDays.map(day => 
+        addDoc(medsRef, {
+          name: medName,
+          dosage: dosage,
+          time: time,
+          day: day,
+          taken: false,
+          status: "pending",
+          createdAt: new Date()
+        })
+      );
+
+      await Promise.all(savePromises);
+      setView("dashboard"); 
     } catch (err) {
       console.error("Firebase Error:", err);
     } finally {
@@ -45,32 +51,78 @@ export default function AddMed({ householdId, setView }) {
   };
 
   return (
-    <div className="add-med-wrapper" style={{ 
-      background: 'radial-gradient(circle at top right, #1a2a6c, #b21f1f, #fdbb2d)',
-      minHeight: '100vh', padding: '40px', color: 'white', fontFamily: "'Poppins', sans-serif" 
-    }}>
-      <div style={{ maxWidth: '500px', margin: '0 auto', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', padding: '30px', borderRadius: '25px', border: '1px solid rgba(255,255,255,0.2)' }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Add New Medication</h2>
-        <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <input value={medName} onChange={(e) => setMedName(e.target.value)} placeholder="Medicine Name" style={{ padding: '12px', borderRadius: '10px', border: 'none' }} />
-          <input value={dosage} onChange={(e) => setDosage(e.target.value)} placeholder="Dosage (e.g. 650mg)" style={{ padding: '12px', borderRadius: '10px', border: 'none' }} />
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ padding: '12px', borderRadius: '10px', border: 'none' }} />
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }} 
+      animate={{ opacity: 1, y: 0 }} 
+      className="dashboard-wrapper"
+    >
+      <div className="professional-form-card" style={{ margin: '40px auto', maxWidth: '700px' }}>
+        <h2 className="panel-title" style={{ fontSize: '2rem', marginBottom: '10px' }}>New Medication</h2>
+        <p style={{ color: '#64748b', marginBottom: '30px', fontWeight: '600' }}>Add a new medicine to your daily routine.</p>
+        
+        <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
           
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {daysOfWeek.map(day => (
-              <button key={day} type="button" onClick={() => toggleDay(day)} style={{ 
-                padding: '8px 12px', borderRadius: '8px', border: '1px solid white',
-                background: selectedDays.includes(day) ? 'white' : 'transparent',
-                color: selectedDays.includes(day) ? '#1a2a6c' : 'white', cursor: 'pointer'
-              }}>{day}</button>
-            ))}
+          <div className="input-group">
+            <label className="input-label">Medicine Name</label>
+            <input 
+              className="pro-input" 
+              value={medName} 
+              onChange={(e) => setMedName(e.target.value)} 
+              placeholder="e.g. Paracetamol" 
+              style={{ width: '100%' }}
+            />
           </div>
 
-          <button type="submit" disabled={loading} style={{ background: '#4CAF50', color: 'white', padding: '15px', borderRadius: '15px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>
-            {loading ? "SAVING..." : "ADD TO SCHEDULE"}
-          </button>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div className="input-group">
+              <label className="input-label">Dosage</label>
+              <input 
+                className="pro-input" 
+                value={dosage} 
+                onChange={(e) => setDosage(e.target.value)} 
+                placeholder="e.g. 500mg" 
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Scheduled Time</label>
+              <input 
+                className="pro-input" 
+                type="time" 
+                value={time} 
+                onChange={(e) => setTime(e.target.value)} 
+                style={{ width: '100%' }}
+              />
+            </div>
+          </div>
+          
+          <div className="input-group">
+            <label className="input-label">Repeat Days</label>
+            {/* FIX: Days buttons forced into one line */}
+            <div className="days-row-container">
+              {daysOfWeek.map(day => (
+                <button 
+                  key={day} 
+                  type="button" 
+                  onClick={() => toggleDay(day)} 
+                  className={selectedDays.includes(day) ? "day-btn active" : "day-btn"}
+                >
+                  {day.substring(0, 3)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
+            <button type="submit" disabled={loading} className="btn-add-main" style={{ flex: 2 }}>
+              {loading ? "SAVING..." : "ADD TO SCHEDULE"}
+            </button>
+            <button type="button" onClick={() => setView("dashboard")} className="btn-secondary" style={{ flex: 1 }}>
+              Cancel
+            </button>
+          </div>
         </form>
       </div>
-    </div>
+    </motion.div>
   );
 }

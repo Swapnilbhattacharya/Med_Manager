@@ -1,30 +1,48 @@
-import React from "react";
+import React from 'react';
+import { motion } from 'framer-motion';
 
-export default function MedicineCard({ name, dose, status, onToggle }) {
+export default function MedicineCard({ name, dose, status, onToggle, onDelete }) {
   const isTaken = status === "Taken";
 
   return (
-    <div className={`med-glass-card ${isTaken ? "is-complete" : ""}`}>
-      <div className="med-main-info">
-        <div className="med-icon-wrapper">{isTaken ? "✅" : "💊"}</div>
-        <div>
-          <h4 style={{margin: 0, fontSize: '18px'}}>{name}</h4>
-          <span className="med-dosage-pill">{dose}</span>
+    <motion.div 
+      layout
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className={`med-row-card ${isTaken ? 'is-taken' : ''}`}
+    >
+      <div className="med-main-content">
+        {/* CUSTOM ANIMATED CHECKBOX */}
+        <div className="checkbox-wrapper" onClick={onToggle}>
+          <motion.div 
+            initial={false}
+            animate={{ 
+              backgroundColor: isTaken ? "#10b981" : "transparent",
+              borderColor: isTaken ? "#10b981" : "#cbd5e1"
+            }}
+            whileTap={{ scale: 0.9 }}
+            className="custom-checkbox"
+          >
+            {isTaken && (
+              <motion.svg 
+                initial={{ pathLength: 0 }} 
+                animate={{ pathLength: 1 }} 
+                viewBox="0 0 24 24"
+              >
+                <path fill="none" stroke="white" strokeWidth="4" d="M5 13l4 4L19 7" />
+              </motion.svg>
+            )}
+          </motion.div>
+        </div>
+
+        {/* SIDE-BY-SIDE INFO */}
+        <div className="med-details">
+          <h4 className={isTaken ? 'strikethrough' : ''}>{name}</h4>
+          <p>{dose}</p>
         </div>
       </div>
 
-      <label className="custom-checkbox">
-        <input 
-          type="checkbox" 
-          checked={isTaken} 
-          onChange={onToggle} 
-          disabled={isTaken} /* Fix: Prevents unchecking */
-          style={{width: '20px', height: '20px', cursor: isTaken ? 'default' : 'pointer'}}
-        />
-        <span style={{marginLeft: '10px', fontWeight: '600', color: isTaken ? '#10b981' : '#64748b'}}>
-          {isTaken ? "Taken" : "Mark Taken"}
-        </span>
-      </label>
-    </div>
+      <button className="delete-med-btn" onClick={onDelete}>✕</button>
+    </motion.div>
   );
 }
