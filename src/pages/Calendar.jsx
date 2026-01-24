@@ -1,73 +1,60 @@
 import React, { useEffect, useState } from "react";
-import { getHouseholdMeds } from "../services/medService";
+import { getUserMeds } from "../services/medService";
+import { motion } from "framer-motion";
 import "./Dashboard.css";
 
 export default function Calendar({ householdId, setView }) {
   const [meds, setMeds] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const fullDays = { 
-    "Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", 
-    "Thu": "Thursday", "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday" 
-  };
+  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   useEffect(() => {
-    if (householdId) {
-      getHouseholdMeds(householdId).then((data) => {
-        setMeds(data);
-        setLoading(false);
-      });
-    } else {
-      setLoading(false);
-    }
+    const loadData = async () => {
+      if (!householdId) { setLoading(false); return; }
+      try {
+        const data = await getUserMeds(householdId);
+        setMeds(data || []);
+      } catch (err) { console.error(err); } 
+      finally { setLoading(false); }
+    };
+    loadData();
   }, [householdId]);
+
+  if (loading) return <div className="loading-screen">✨ Mapping Weekly Routine...</div>;
 
   return (
     <div className="dashboard-wrapper">
-      <div className="dash-header">
-        <h2 style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <span style={{ fontSize: '32px' }}>🗓️</span> 
-          <span className="highlight-name">Weekly Schedule</span>
-        </h2>
-        <button className="btn-add-main" onClick={() => setView("dashboard")}>
-          ← Back Home
-        </button>
-      </div>
-
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '50px' }}>
-          <h3 style={{ color: '#4f46e5' }}>Syncing Calendar...</h3>
+      <header className="dash-header">
+        <div>
+          <h2 className="highlight-name">Weekly Routine 🗓️</h2>
+          <p style={{ color: '#64748b' }}>A comprehensive 7-day visual mapping tool.</p>
         </div>
-      ) : (
-        <div className="calendar-grid-layout">
-          {days.map(day => {
-            const dayMeds = meds.filter(m => m.day === fullDays[day]);
+        <button className="btn-secondary" onClick={() => setView("dashboard")}>← Dashboard</button>
+      </header>
 
-            return (
-              <div key={day} className="glass-inner calendar-day-card">
-                <h3 className="day-title">{day}</h3>
-                
-                <div className="day-med-list">
-                  {dayMeds.length > 0 ? (
-                    dayMeds.map(m => (
-                      <div key={m.id} className="calendar-item-box">
-                        <div className="item-time">{m.time}</div>
-                        <div className="item-details">
-                          <strong>{m.name}</strong>
-                          <p>{m.dosage}</p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="no-meds-placeholder">No meds</div>
-                  )}
-                </div>
+      {/* THIS IS THE CRITICAL WRAPPER FOR SIDE-BY-SIDE PANES */}
+      <div className="calendar-grid-wrapper">
+        {dayNames.map((day) => {
+          const dayMeds = meds.filter((m) => m.day === day);
+          return (
+            <motion.div key={day} className="glass-pane-column">
+              <h3 className="day-label">{day}</h3>
+              <div className="pane-content">
+                {dayMeds.length > 0 ? (
+                  dayMeds.map((med) => (
+                    <div key={med.id} className="mini-med-card">
+                      <strong>{med.name}</strong>
+                      <p>{med.time}</p>
+                    </div>
+                  ))
+                ) : (
+                  <span className="no-meds-text">Empty</span>
+                )}
               </div>
-            );
-          })}
-        </div>
-      )}
+            </motion.div>
+          );
+        })}
+      </div>
     </div>
   );
 }
