@@ -1,109 +1,76 @@
 import React, { useState } from "react";
-import { addMedicine } from "../services/medService";
-import "./Dashboard.css";
+import { db } from "../services/firebase";
+import { collection, addDoc } from "firebase/firestore";
 
-export default function AddMed({ user, householdId, setView }) {
-  const [formData, setFormData] = useState({
-    name: "",
-    dosage: "",
-    day: "Monday",
-    time: "08:00",
-  });
+export default function AddMed({ householdId, setView }) {
+  const [medName, setMedName] = useState("");
+  const [dosage, setDosage] = useState("");
+  const [time, setTime] = useState("");
+  const [selectedDays, setSelectedDays] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  const toggleDay = (day) => {
+    setSelectedDays(prev => 
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+    );
+  };
+
+  const handleAdd = async (e) => {
     e.preventDefault();
+    if (!medName || selectedDays.length === 0) {
+      alert("Please enter a name and select at least one day.");
+      return;
+    }
+
+    setLoading(true);
     try {
-      await addMedicine(householdId, { 
-        ...formData, 
-        userId: user.uid,
-        status: "pending" 
+      // Direct subcollection targeting for global sync
+      const medsRef = collection(db, "households", householdId, "medications");
+      await addDoc(medsRef, {
+        name: medName,
+        dosage: dosage,
+        time: time,
+        days: selectedDays, // The array needed for Calendar filtering
+        taken: false,
+        createdAt: new Date()
       });
-      setView("dashboard");
+      setView("dashboard"); // Redirect refreshes the global state
     } catch (err) {
-      alert("Error adding medication");
+      console.error("Firebase Error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="dashboard-wrapper">
-      <div className="dash-header">
-        <div>
-          <h2 className="highlight-name">Add Medication 💊</h2>
-          <p style={{ color: '#64748b', marginTop: '5px' }}>Schedule a new reminder for your daily routine.</p>
-        </div>
-        <button className="btn-cancel" onClick={() => setView("dashboard")}>Cancel</button>
-      </div>
-
-      <div className="form-container-centered">
-        <form onSubmit={handleSubmit} className="professional-form-card glass-inner">
-          <div style={{ marginBottom: '20px' }}>
-            <label style={styles.label}>Medicine Name</label>
-            <input
-              type="text"
-              className="pro-input"
-              placeholder="e.g. Paracetamol"
-              style={{ width: '100%' }}
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
+    <div className="add-med-wrapper" style={{ 
+      background: 'radial-gradient(circle at top right, #1a2a6c, #b21f1f, #fdbb2d)',
+      minHeight: '100vh', padding: '40px', color: 'white', fontFamily: "'Poppins', sans-serif" 
+    }}>
+      <div style={{ maxWidth: '500px', margin: '0 auto', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', padding: '30px', borderRadius: '25px', border: '1px solid rgba(255,255,255,0.2)' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Add New Medication</h2>
+        <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <input value={medName} onChange={(e) => setMedName(e.target.value)} placeholder="Medicine Name" style={{ padding: '12px', borderRadius: '10px', border: 'none' }} />
+          <input value={dosage} onChange={(e) => setDosage(e.target.value)} placeholder="Dosage (e.g. 650mg)" style={{ padding: '12px', borderRadius: '10px', border: 'none' }} />
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ padding: '12px', borderRadius: '10px', border: 'none' }} />
+          
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {daysOfWeek.map(day => (
+              <button key={day} type="button" onClick={() => toggleDay(day)} style={{ 
+                padding: '8px 12px', borderRadius: '8px', border: '1px solid white',
+                background: selectedDays.includes(day) ? 'white' : 'transparent',
+                color: selectedDays.includes(day) ? '#1a2a6c' : 'white', cursor: 'pointer'
+              }}>{day}</button>
+            ))}
           </div>
 
-          <div className="form-row-double">
-            <div>
-              <label style={styles.label}>Dosage</label>
-              <input
-                type="text"
-                className="pro-input"
-                placeholder="e.g. 500mg"
-                style={{ width: '100%' }}
-                value={formData.dosage}
-                onChange={(e) => setFormData({ ...formData, dosage: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <label style={styles.label}>Day of Week</label>
-              <select
-                className="pro-input"
-                style={{ width: '100%' }}
-                value={formData.day}
-                onChange={(e) => setFormData({ ...formData, day: e.target.value })}
-              >
-                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div style={{ margin: '20px 0' }}>
-            <label style={styles.label}>Specified Time</label>
-            <input
-              type="time"
-              className="pro-input"
-              style={{ width: '100%' }}
-              value={formData.time}
-              onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-              required
-            />
-          </div>
-
-          <button type="submit" className="btn-save-main">
-            Confirm Schedule
+          <button type="submit" disabled={loading} style={{ background: '#4CAF50', color: 'white', padding: '15px', borderRadius: '15px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>
+            {loading ? "SAVING..." : "ADD TO SCHEDULE"}
           </button>
         </form>
       </div>
     </div>
   );
 }
-
-const styles = {
-  label: {
-    display: 'block',
-    marginBottom: '8px',
-    fontWeight: '600',
-    color: '#1e293b',
-    fontSize: '14px'
-  }
-};
