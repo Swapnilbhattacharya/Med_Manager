@@ -3,13 +3,17 @@ import { auth, db } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 
-// Page Imports
+// Page & Component Imports
 import Login from "./pages/login"; 
 import Dashboard from "./pages/Dashboard"; 
 import Calendar from "./pages/Calendar"; 
 import Setup from "./pages/Join"; 
 import AddMed from "./pages/AddMed";
+
+// Inventory Imports
 import AddInventory from "./pages/AddInventory"; 
+import InventoryList from "./Components/InventoryList"; // <--- Import the new List View
+
 import TopNav from "./Components/TopNav"; 
 import HouseholdFooter from "./Components/HouseholdFooter";
 
@@ -48,23 +52,41 @@ export default function App() {
 
   return (
     <div className="app-main-layout" style={{ minHeight: "100vh", background: "#f8fbff" }}>
+      {/* TopNav is always visible (except on login) */}
       <TopNav setView={setView} currentView={currentView} />
+      
       <main className="content-container" style={{ padding: '20px' }}>
-        {currentView === "setup" && <Setup user={user} setView={setView} />}
+        
+        {currentView === "setup" && (
+          <Setup user={user} setView={setView} />
+        )}
+        
         {currentView === "dashboard" && (
           <Dashboard user={user} householdId={householdId} setView={setView} />
         )}
+        
         {currentView === "calendar" && (
           <Calendar user={user} householdId={householdId} setView={setView} />
         )}
+        
         {currentView === "addMed" && (
           <AddMed user={user} householdId={householdId} setView={setView} />
         )}
-        {/* NEW: Passing householdId to isolation inventory by family */}
+
+        {/* --- INVENTORY SECTION --- */}
+        
+        {/* 1. The List View (Default when clicking 'Stock Manager') */}
         {currentView === "inventory" && (
+          <InventoryList householdId={householdId} setView={setView} />
+        )}
+
+        {/* 2. The Add Form (When clicking 'Add New Stock') */}
+        {currentView === "addInventory" && (
           <AddInventory householdId={householdId} setView={setView} />
         )}
+
       </main>
+      
       <HouseholdFooter householdId={householdId} />
     </div>
   );

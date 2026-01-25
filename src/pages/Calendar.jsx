@@ -1,21 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { getUserMeds } from "../services/medService";
 import { motion } from "framer-motion";
-import "./Dashboard.css";
+import "./Dashboard.css"; // Ensure this imports the updated CSS
 
 export default function Calendar({ householdId, setView }) {
   const [meds, setMeds] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Standard day names for the grid columns
   const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   useEffect(() => {
     const loadData = async () => {
-      if (!householdId) { setLoading(false); return; }
+      if (!householdId) { 
+        setLoading(false); 
+        return; 
+      }
       try {
         const data = await getUserMeds(householdId);
         setMeds(data || []);
-      } catch (err) { console.error(err); } 
-      finally { setLoading(false); }
+      } catch (err) { 
+        console.error("Error loading calendar data:", err); 
+      } finally { 
+        setLoading(false); 
+      }
     };
     loadData();
   }, [householdId]);
@@ -23,28 +31,56 @@ export default function Calendar({ householdId, setView }) {
   if (loading) return <div className="loading-screen">✨ Mapping Weekly Routine...</div>;
 
   return (
-    <div className="dashboard-wrapper">
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.98 }} 
+      animate={{ opacity: 1, scale: 1 }} 
+      className="dashboard-wrapper"
+    >
       <header className="dash-header">
         <div>
           <h2 className="highlight-name">Weekly Routine 🗓️</h2>
-          <p style={{ color: '#64748b' }}>A comprehensive 7-day visual mapping tool.</p>
+          <p style={{ color: '#64748b', marginTop: '5px' }}>
+            A comprehensive 7-day visual mapping tool.
+          </p>
         </div>
-        <button className="btn-secondary" onClick={() => setView("dashboard")}>← Dashboard</button>
+        <button className="btn-secondary" onClick={() => setView("dashboard")}>
+          ← Back to Dashboard
+        </button>
       </header>
 
-      {/* THIS IS THE CRITICAL WRAPPER FOR SIDE-BY-SIDE PANES */}
+      {/* THE 7-COLUMN GRID CONTAINER */}
       <div className="calendar-grid-wrapper">
         {dayNames.map((day) => {
+          // Filter meds for this specific day
           const dayMeds = meds.filter((m) => m.day === day);
+
           return (
-            <motion.div key={day} className="glass-pane-column">
-              <h3 className="day-label">{day}</h3>
+            <motion.div 
+              whileHover={{ y: -5 }} 
+              key={day} 
+              className="glass-pane-column"
+            >
+              <h3 className="day-label">{day.substring(0, 3)}</h3>
+              
               <div className="pane-content">
                 {dayMeds.length > 0 ? (
                   dayMeds.map((med) => (
                     <div key={med.id} className="mini-med-card">
                       <strong>{med.name}</strong>
-                      <p>{med.time}</p>
+                      <p>{med.time || "No time set"}</p>
+                      {med.dosage && (
+                        <span style={{
+                          fontSize: '0.75rem', 
+                          background: '#eff6ff', 
+                          color: '#3b82f6', 
+                          padding: '2px 6px', 
+                          borderRadius: '4px',
+                          marginTop: '4px',
+                          display: 'inline-block'
+                        }}>
+                          {med.dosage}
+                        </span>
+                      )}
                     </div>
                   ))
                 ) : (
@@ -55,6 +91,6 @@ export default function Calendar({ householdId, setView }) {
           );
         })}
       </div>
-    </div>
+    </motion.div>
   );
 }

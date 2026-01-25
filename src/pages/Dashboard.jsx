@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from 'react-markdown'; 
 import { db } from "../services/firebase"; 
 import { 
   doc, 
@@ -13,7 +14,6 @@ import {
 } from "firebase/firestore"; 
 import { getUserMeds } from "../services/medService";
 import { getMedicineAlternative } from "../services/aiService"; 
-import MedicineCard from "../Components/MedicineCard";
 import ProgressRing from "../Components/ProgressRing";
 import "./Dashboard.css";
 
@@ -76,21 +76,13 @@ export default function Dashboard({ user, householdId, setView }) {
     setIsAiLoading(false);
   };
 
-  /**
-   * Updated Toggle Logic:
-   * 1. Marks medicine as taken in the schedule.
-   * 2. Finds matching medicine in the household inventory sub-collection.
-   * 3. Decrements quantity by 1 if stock is available.
-   */
   const toggleMedStatus = async (medId, currentStatus, medName) => {
     if (currentStatus || medId === "_") return; 
 
-    // Update UI State immediately
     const updatedMeds = meds.map(m => m.id === medId ? { ...m, taken: true } : m);
     setMeds(updatedMeds);
 
     try {
-      // Step A: Update the schedule document
       const medRef = doc(db, "households", householdId, "medicines", medId);
       await updateDoc(medRef, { 
         taken: true, 
@@ -98,13 +90,11 @@ export default function Dashboard({ user, householdId, setView }) {
         lastUpdated: serverTimestamp() 
       });
 
-      // Step B: Inventory Reduction Logic
       const inventoryRef = collection(db, "households", householdId, "inventory");
       const q = query(inventoryRef, where("medicineName", "==", medName));
       const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
-        // Find the first batch with available stock
         const stockDoc = querySnapshot.docs[0];
         const stockRef = doc(db, "households", householdId, "inventory", stockDoc.id);
         const currentQty = stockDoc.data().quantity || 0;
@@ -114,22 +104,16 @@ export default function Dashboard({ user, householdId, setView }) {
             quantity: currentQty - 1,
             lastUpdated: serverTimestamp()
           });
-        } else {
-          console.warn(`Insufficient stock for ${medName}`);
         }
       }
     } catch (err) { 
       console.error("Update failed:", err);
-      setMeds(meds); // Revert UI if DB fails
+      setMeds(meds); 
     }
   };
 
   const handleDelete = async (medId) => {
-    if (medId === "_") {
-      alert("Note: This is an invalid system document. Cleaning it up now.");
-    }
-
-    if (window.confirm("Remove this medication?")) {
+    if (window.confirm("Remove this medication from your schedule?")) {
       try {
         await deleteDoc(doc(db, "households", householdId, "medicines", medId));
         setMeds(prev => prev.filter(m => m.id !== medId));
@@ -147,20 +131,18 @@ export default function Dashboard({ user, householdId, setView }) {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="dashboard-wrapper">
+      
+      {/* HEADER: Cleaned up (ID removed) */}
       <header className="dash-header">
         <div className="welcome-area">
           <h1>{getGreeting()}, <span className="highlight-name">{userName}</span> ✨</h1>
           <p>Schedule for <span className="count-tag">{todayName}</span></p>
         </div>
-        
-        <div className="header-actions">
-          <button className="btn-secondary" onClick={() => setView("inventory")}>📦 Stock Manager</button>
-          <button className="btn-secondary" onClick={() => setView("calendar")}>🗓️ Calendar</button>
-          <button className="btn-add-main" onClick={() => setView("addMed")}>+ Add Medicine</button>
-        </div>
+        {/* The ID text is completely gone now */}
       </header>
 
-      <div className="main-grid" style={{ gridTemplateColumns: '320px 1fr' }}>
+      <div className="main-grid">
+        {/* Left Panel: Adherence Stats */}
         <aside className="left-panel">
           <motion.div whileHover={{ scale: 1.02 }} className="glass-inner adherence-box">
             <h3 className="panel-title">Daily Adherence</h3>
@@ -172,6 +154,7 @@ export default function Dashboard({ user, householdId, setView }) {
           </motion.div>
         </aside>
 
+        {/* Right Panel: Schedule List */}
         <main className="schedule-panel glass-inner">
           <div className="panel-header">
             <h3>Current Schedule</h3>
@@ -179,29 +162,55 @@ export default function Dashboard({ user, householdId, setView }) {
               {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </span>
           </div>
+          
           <div className="med-grid">
             {meds.length > 0 ? (
-              meds.map(med => (
-                <MedicineCard 
-                  key={med.id} 
-                  name={med.name || "Unknown Medicine"} 
-                  dose={med.dosage || med.dose || "N/A"} 
-                  status={med.taken || med.status === "taken" ? "Taken" : "Pending"} 
-                  onToggle={() => toggleMedStatus(med.id, med.taken, med.name)} 
-                  onDelete={() => handleDelete(med.id)}
-                />
-              ))
+              meds.map(med => {
+                const isTaken = med.taken || med.status === "taken";
+                return (
+                  <motion.div 
+                    layout 
+                    initial={{ opacity: 0, y: 10 }} 
+                    animate={{ opacity: 1, y: 0 }}
+                    key={med.id} 
+                    className={`med-row-card ${isTaken ? 'is-taken' : ''}`}
+                  >
+                    <div className="med-main-content">
+                      <div className="checkbox-wrapper" onClick={() => toggleMedStatus(med.id, isTaken, med.name)}>
+                        <div className="custom-checkbox">
+                          {isTaken && (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                      <div className="med-details">
+                        <h4 className={isTaken ? 'strikethrough' : ''}>
+                          {med.name || "Unknown Medicine"}
+                        </h4>
+                        <p>{med.dosage || med.dose || "Standard Dose"}</p>
+                      </div>
+                    </div>
+                    <button className="delete-med-btn" onClick={() => handleDelete(med.id)} title="Remove medicine">
+                      🗑️
+                    </button>
+                  </motion.div>
+                );
+              })
             ) : (
-              <div className="empty-state">No meds for {todayName}! Take a break. 🌿</div>
+              <div className="empty-state">No medicines scheduled for {todayName}! 🌿</div>
             )}
           </div>
         </main>
       </div>
 
+      {/* Floating Chat Toggle */}
       <button className="chat-toggle-btn" onClick={() => setIsChatOpen(true)}>
         🤖 Ask Gemini
       </button>
 
+      {/* Slide-out Chat Drawer */}
       <AnimatePresence>
         {isChatOpen && (
           <>
@@ -216,27 +225,34 @@ export default function Dashboard({ user, householdId, setView }) {
               initial={{ x: '100%' }} 
               animate={{ x: 0 }} 
               exit={{ x: '100%' }} 
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              transition={{ type: 'tween', duration: 0.3, ease: 'easeOut' }} 
               className="chat-side-panel glass-inner"
             >
               <div className="panel-header-ai">
                 <h4 className="ai-title">🤖 Gemini Consultant</h4>
                 <button className="close-panel-btn" onClick={() => setIsChatOpen(false)}>✕</button>
               </div>
+              
               <div className="chat-window">
                 {aiHistory.map((msg, i) => (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={i} className={`chat-bubble ${msg.role}`}>
-                    {msg.text}
+                  <motion.div 
+                    key={i} 
+                    initial={{ opacity: 0, y: 10 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    className={`chat-bubble ${msg.role}`}
+                  >
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
                   </motion.div>
                 ))}
-                {isAiLoading && <p className="loading-text">Thinking...</p>}
+                {isAiLoading && <p className="loading-text">Gemini is thinking...</p>}
               </div>
+              
               <div className="chat-input-area">
                 <input 
                   value={aiQuery} 
                   onChange={(e) => setAiQuery(e.target.value)} 
                   onKeyPress={(e) => e.key === 'Enter' && handleAiConsult()}
-                  placeholder="Ask about substitutes..." 
+                  placeholder="Ask about dosage, substitutes..." 
                 />
                 <button onClick={handleAiConsult}>Send</button>
               </div>
