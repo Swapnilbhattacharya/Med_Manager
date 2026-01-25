@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { db } from '../services/firebase';
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { motion } from "framer-motion";
-import "./Dashboard.css"; // Uses shared glass styles
+
+// FIX: Ensure this imports the CSS file where 'professional-form-card' is defined
+import "./Dashboard.css"; 
 
 const AddInventory = ({ householdId, setView }) => {
   const [formData, setFormData] = useState({
@@ -43,7 +45,7 @@ const AddInventory = ({ householdId, setView }) => {
       }, { merge: true });
       
       alert("Inventory synced successfully! ✨");
-      // Redirect back to the LIST view, not dashboard
+      // Redirect back to the LIST view
       setView("inventory"); 
     } catch (err) {
       console.error(err);
@@ -61,7 +63,8 @@ const AddInventory = ({ householdId, setView }) => {
     >
        <header className="dash-header">
         <div className="welcome-area">
-          <h1>Add Stock ➕</h1>
+          {/* Using same class as Dashboard for font consistency */}
+          <h1 className="highlight-name" style={{fontSize: '2rem'}}>Add Stock ➕</h1>
           <p style={{ color: '#64748b' }}>Register new supplies to your household.</p>
         </div>
         <button className="btn-secondary" onClick={() => setView("inventory")}>
@@ -69,7 +72,7 @@ const AddInventory = ({ householdId, setView }) => {
         </button>
       </header>
 
-      {/* PROFESSIONAL GLASS FORM */}
+      {/* Using the Professional Glass Form Class */}
       <div className="professional-form-card">
         <form onSubmit={handleSubmit}>
           
@@ -94,7 +97,6 @@ const AddInventory = ({ householdId, setView }) => {
             />
           </div>
 
-          {/* TWO COLUMN ROW */}
           <div className="days-row-container" style={{ marginBottom: '20px' }}>
             <div style={{ flex: 1 }}>
               <label className="input-label">Batch Number</label>

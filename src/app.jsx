@@ -3,16 +3,16 @@ import { auth, db } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 
-// Page & Component Imports
+// Page Imports
 import Login from "./pages/login"; 
 import Dashboard from "./pages/Dashboard"; 
 import Calendar from "./pages/Calendar"; 
 import Setup from "./pages/Join"; 
 import AddMed from "./pages/AddMed";
 
-// Inventory Imports
+// --- INVENTORY IMPORTS ---
 import AddInventory from "./pages/AddInventory"; 
-import InventoryList from "./Components/InventoryList"; // <--- Import the new List View
+import InventoryList from "./Components/InventoryList"; // Ensure this path matches your folder structure
 
 import TopNav from "./Components/TopNav"; 
 import HouseholdFooter from "./Components/HouseholdFooter";
@@ -52,14 +52,11 @@ export default function App() {
 
   return (
     <div className="app-main-layout" style={{ minHeight: "100vh", background: "#f8fbff" }}>
-      {/* TopNav is always visible (except on login) */}
       <TopNav setView={setView} currentView={currentView} />
       
       <main className="content-container" style={{ padding: '20px' }}>
         
-        {currentView === "setup" && (
-          <Setup user={user} setView={setView} />
-        )}
+        {currentView === "setup" && <Setup user={user} setView={setView} />}
         
         {currentView === "dashboard" && (
           <Dashboard user={user} householdId={householdId} setView={setView} />
@@ -73,20 +70,17 @@ export default function App() {
           <AddMed user={user} householdId={householdId} setView={setView} />
         )}
 
-        {/* --- INVENTORY SECTION --- */}
-        
-        {/* 1. The List View (Default when clicking 'Stock Manager') */}
+        {/* --- FIX: SHOW LIST WHEN 'STOCK MANAGER' IS CLICKED --- */}
         {currentView === "inventory" && (
           <InventoryList householdId={householdId} setView={setView} />
         )}
 
-        {/* 2. The Add Form (When clicking 'Add New Stock') */}
+        {/* --- FIX: SHOW FORM ONLY WHEN 'ADD STOCK' IS CLICKED --- */}
         {currentView === "addInventory" && (
           <AddInventory householdId={householdId} setView={setView} />
         )}
 
       </main>
-      
       <HouseholdFooter householdId={householdId} />
     </div>
   );

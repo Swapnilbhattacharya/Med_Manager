@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../services/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
 import { motion } from "framer-motion";
-import "../pages/Dashboard.css"; // Uses shared glass styles
+
+// FIX: Point up to the 'pages' folder to find the CSS
+import "../pages/Dashboard.css"; 
 
 export default function InventoryList({ householdId, setView }) {
   const [inventory, setInventory] = useState([]);
@@ -13,7 +15,6 @@ export default function InventoryList({ householdId, setView }) {
       if (!householdId) return;
       try {
         const invRef = collection(db, "households", householdId, "inventory");
-        // Try to order by lastUpdated, fallback to default if index missing
         const q = query(invRef); 
         const snapshot = await getDocs(q);
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -37,24 +38,21 @@ export default function InventoryList({ householdId, setView }) {
     >
       <header className="dash-header">
         <div className="welcome-area">
-          <h1>Stock Manager 📦</h1>
+          <h1 className="highlight-name" style={{fontSize: '2rem'}}>Stock Manager 📦</h1>
           <p style={{ color: '#64748b' }}>Track quantity, batches, and expiry.</p>
         </div>
         
         <div className="header-actions">
-           {/* BACK TO DASHBOARD */}
           <button className="btn-secondary" onClick={() => setView("dashboard")}>
             ← Dashboard
           </button>
           
-          {/* THE BUTTON TO ADD NEW ITEMS */}
           <button className="btn-add-main" onClick={() => setView("addInventory")}>
             + Add New Stock
           </button>
         </div>
       </header>
 
-      {/* INVENTORY GRID */}
       <div className="inventory-grid-container">
         {inventory.length > 0 ? (
           inventory.map((item) => (
