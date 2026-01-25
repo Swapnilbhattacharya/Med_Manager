@@ -3,7 +3,6 @@ import { auth, db } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, getDoc } from "firebase/firestore";
 
-// Page Imports
 import Login from "./pages/login"; 
 import Dashboard from "./pages/Dashboard"; 
 import Calendar from "./pages/Calendar"; 
@@ -12,8 +11,6 @@ import AddMed from "./pages/AddMed";
 import AddInventory from "./pages/AddInventory"; 
 import InventoryList from "./Components/InventoryList"; 
 import TopNav from "./Components/TopNav"; 
-
-// IMPORT NEW PAGE
 import SwitchUser from "./pages/SwitchUser"; 
 
 export default function App() {
@@ -25,13 +22,14 @@ export default function App() {
   const [userName, setUserName] = useState("");
   const [familyName, setFamilyName] = useState("My Family");
 
+  // MONITORING STATE
+  const [monitoringTarget, setMonitoringTarget] = useState(null); 
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      
       if (currentUser) {
         const userRef = doc(db, "users", currentUser.uid);
-        
         const unsubUser = onSnapshot(userRef, async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
@@ -68,6 +66,10 @@ export default function App() {
 
   const currentView = !householdId ? "setup" : view;
 
+  // LOGIC: Who is the target?
+  const targetUid = monitoringTarget?.uid || user.uid;
+  const targetName = monitoringTarget?.name || userName;
+
   return (
     <div className="app-main-layout" style={{ minHeight: "100vh", background: "#f8fbff" }}>
       
@@ -77,23 +79,44 @@ export default function App() {
         user={user} 
         userName={userName}      
         familyName={familyName}  
-        householdId={householdId} 
+        householdId={householdId}
+        setMonitoringTarget={setMonitoringTarget}
+        monitoringTarget={monitoringTarget}
       />
+
+      {monitoringTarget && (
+        <div style={{ background: '#fef3c7', color: '#92400e', textAlign: 'center', padding: '8px', fontSize: '0.9rem', fontWeight: 'bold', borderBottom: '1px solid #fcd34d' }}>
+          👁️ CAREGIVER MODE: You are managing {monitoringTarget.name}.
+        </div>
+      )}
       
       <main className="content-container" style={{ padding: '20px' }}>
         {currentView === "setup" && <Setup user={user} setView={setView} />}
+        
         {currentView === "dashboard" && (
-          <Dashboard user={user} userName={userName} householdId={householdId} setView={setView} />
+          <Dashboard 
+            user={user} userName={targetName} householdId={householdId} setView={setView}
+            targetUid={targetUid} isMonitoring={!!monitoringTarget} 
+          />
         )}
-        {currentView === "calendar" && <Calendar householdId={householdId} setView={setView} />}
-        {currentView === "addMed" && <AddMed householdId={householdId} setView={setView} />}
+        
+        {currentView === "calendar" && (
+          <Calendar householdId={householdId} setView={setView} targetUid={targetUid} />
+        )}
+        
+        {/* FIX: Pass targetUid and targetName to AddMed */}
+        {currentView === "addMed" && (
+          <AddMed 
+            householdId={householdId} 
+            setView={setView} 
+            targetUid={targetUid}     // <--- The person getting the med
+            targetName={targetName}   // <--- Their name
+          />
+        )}
+        
         {currentView === "inventory" && <InventoryList householdId={householdId} setView={setView} />}
         {currentView === "addInventory" && <AddInventory householdId={householdId} setView={setView} />}
-
-        {/* --- NEW SWITCH USER PAGE --- */}
-        {currentView === "switchUser" && (
-          <SwitchUser householdId={householdId} setView={setView} currentUser={user} />
-        )}
+        {currentView === "switchUser" && <SwitchUser householdId={householdId} setView={setView} currentUser={user} />}
       </main>
     </div>
   );

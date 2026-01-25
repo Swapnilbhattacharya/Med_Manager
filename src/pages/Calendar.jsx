@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { getUserMeds } from "../services/medService";
 import { motion } from "framer-motion";
-import "./Dashboard.css"; // Ensure this imports the updated CSS
+import "./Dashboard.css"; 
 
-export default function Calendar({ householdId, setView }) {
+// UPDATED: Now accepts 'targetUid'
+export default function Calendar({ householdId, setView, targetUid }) {
   const [meds, setMeds] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Standard day names for the grid columns
   const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   useEffect(() => {
@@ -17,7 +17,8 @@ export default function Calendar({ householdId, setView }) {
         return; 
       }
       try {
-        const data = await getUserMeds(householdId);
+        // FIX: Pass targetUid to the service to filter the calendar!
+        const data = await getUserMeds(householdId, targetUid);
         setMeds(data || []);
       } catch (err) { 
         console.error("Error loading calendar data:", err); 
@@ -26,7 +27,7 @@ export default function Calendar({ householdId, setView }) {
       }
     };
     loadData();
-  }, [householdId]);
+  }, [householdId, targetUid]); // FIX: Re-run when target user changes
 
   if (loading) return <div className="loading-screen">✨ Mapping Weekly Routine...</div>;
 

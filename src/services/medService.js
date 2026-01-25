@@ -20,12 +20,21 @@ export const addMedicine = async (houseId, medData) => {
   } catch (error) { console.error("AddMed Error:", error); throw error; }
 };
 
-export const getHouseholdMeds = async (houseId) => {
+// UPDATED: Now accepts optional 'targetUid' to filter
+export const getHouseholdMeds = async (houseId, targetUid = null) => {
   if (!houseId) return [];
   try {
+    // Fetch all household meds first
     const q = query(getMedCol(houseId), orderBy("time", "asc"));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const allMeds = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // FILTER: Only return medicines belonging to the target User
+    if (targetUid) {
+      return allMeds.filter(med => med.ownerId === targetUid);
+    }
+
+    return allMeds;
   } catch (error) { 
     console.error("FetchMeds Error:", error); 
     return []; 
@@ -56,5 +65,5 @@ export const resetDailyStatus = async (houseId) => {
   } catch (error) { console.error("Reset Error:", error); }
 };
 
-// ALIAS: Fixes the Dashboard import error
+// ALIAS
 export const getUserMeds = getHouseholdMeds;

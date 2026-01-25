@@ -10,9 +10,10 @@ import { getMedicineAlternative } from "../services/aiService";
 import ProgressRing from "../Components/ProgressRing";
 import "./Dashboard.css";
 
-export default function Dashboard({ user, userName, householdId, setView }) {
+export default function Dashboard({ user, userName, householdId, setView, targetUid, isMonitoring }) {
   const [meds, setMeds] = useState([]); 
   const [lowStock, setLowStock] = useState([]); 
+  const [activityLog, setActivityLog] = useState([]); // NEW: Activity Feed
   const [loading, setLoading] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   
@@ -42,18 +43,26 @@ export default function Dashboard({ user, userName, householdId, setView }) {
         return; 
       }
       try {
-        // 1. Fetch Schedule
-        const data = await getUserMeds(householdId);
+        // 1. Fetch Schedule for TARGET USER
+        const data = await getUserMeds(householdId, targetUid); // Pass targetUid
         const filteredData = (data || []).filter(m => m.day === todayName);
         setMeds(filteredData);
 
-        // 2. Fetch Inventory for Low Stock
+        // 2. Fetch Global Inventory
         const invRef = collection(db, "households", householdId, "inventory");
         const invSnap = await getDocs(invRef);
         const lowItems = invSnap.docs
           .map(d => d.data())
           .filter(item => Number(item.quantity) <= 5); 
         setLowStock(lowItems);
+
+        // 3. Generate Activity Log (Simulated from taken status)
+        const recentActivity = data
+            .filter(m => m.taken)
+            // Sort by a generic timestamp for simulation if lastUpdated isn't strictly set on all
+            .sort((a, b) => (b.lastUpdated?.seconds || 0) - (a.lastUpdated?.seconds || 0))
+            .slice(0, 5);
+        setActivityLog(recentActivity);
 
       } catch (err) {
         console.error("Error loading data:", err); 
@@ -62,24 +71,19 @@ export default function Dashboard({ user, userName, householdId, setView }) {
       }
     };
     loadData();
-  }, [householdId, todayName]);
+  }, [householdId, todayName, targetUid]); // Re-fetch when target changes
 
-  // --- SMART AI HANDLER (THE FIX) ---
+  // --- SMART AI HANDLER ---
   const handleAiConsult = async (directQuery = null) => {
     const queryText = typeof directQuery === 'string' ? directQuery : aiQuery;
-    
     if (!queryText.trim()) return;
-
     if (directQuery) setIsChatOpen(true);
 
-    // 1. Show the USER'S question in the chat UI (Short & Clean)
     const userMsg = { role: 'user', text: queryText };
     setAiHistory(prev => [...prev, userMsg]);
     setAiQuery(""); 
     setIsAiLoading(true);
 
-    // 2. Build the CONTEXT string (The "Secret" Info for Gemini)
-    // We list the meds so it knows what you are taking.
     const medListString = meds.length > 0 
       ? meds.map(m => `${m.name} (${m.dosage || 'unknown dose'})`).join(", ")
       : "No active medications currently scheduled for today.";
@@ -91,7 +95,6 @@ export default function Dashboard({ user, userName, householdId, setView }) {
     `;
 
     try {
-      // 3. Send the "Secret" full prompt to the AI
       const response = await getMedicineAlternative(fullContextPrompt);
       setAiHistory(prev => [...prev, { role: 'bot', text: response }]);
     } catch (err) {
@@ -136,7 +139,6 @@ export default function Dashboard({ user, userName, householdId, setView }) {
   const takenCount = meds.filter(m => m.taken || m.status === "taken").length;
   const totalCount = meds.length;
   const pendingCount = totalCount - takenCount;
-  
   const nextUpMed = meds.find(m => !m.taken && m.status !== "taken");
 
   return (
@@ -144,7 +146,10 @@ export default function Dashboard({ user, userName, householdId, setView }) {
       
       <header className="dash-header">
         <div className="welcome-area">
-          <h1>{getGreeting()}, <span className="highlight-name">{displayGreeting}</span> ✨</h1>
+          <h1>
+            {isMonitoring ? "👁️ Monitoring" : "Good Morning,"} <span className="highlight-name">{displayGreeting}</span> ✨
+            {isMonitoring && <span style={{display:'block', fontSize:'0.5em', color:'#64748b', marginTop:'5px'}}>ADMIN MODE ACTIVE</span>}
+          </h1>
           <p>Schedule for <span className="count-tag">{todayName}</span></p>
         </div>
       </header>
@@ -153,7 +158,7 @@ export default function Dashboard({ user, userName, householdId, setView }) {
         <aside className="left-panel">
           
           <motion.div whileHover={{ scale: 1.02 }} className="glass-inner adherence-box">
-            <h3 className="panel-title">Daily Adherence</h3>
+            <h3 className="panel-title">{isMonitoring ? "Their Progress" : "Daily Adherence"}</h3>
             <ProgressRing taken={takenCount} total={totalCount} />
             <div className="stat-mini-row">
                <div className="mini-box"><strong>{pendingCount}</strong><p>Pending</p></div>
@@ -161,61 +166,58 @@ export default function Dashboard({ user, userName, householdId, setView }) {
             </div>
           </motion.div>
 
-          {lowStock.length > 0 && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-inner"
-              style={{ background: 'rgba(254, 226, 226, 0.95)', border: '1px solid #fecaca' }}
-            >
-              <h4 style={{ margin: '0 0 10px 0', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                ⚠️ Low Stock Warning
-              </h4>
-              <ul style={{ margin: 0, paddingLeft: '20px', color: '#7f1d1d', fontSize: '0.9rem' }}>
-                {lowStock.slice(0, 3).map((item, idx) => (
-                  <li key={idx} style={{ marginBottom: '4px' }}>
-                    <b>{item.medicineName}</b> (Qty: {item.quantity})
-                  </li>
-                ))}
-              </ul>
-              <button 
-                onClick={() => setView("inventory")}
-                style={{ marginTop: '12px', background: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', color: '#b91c1c', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', width: '100%' }}
-              >
-                Refill Inventory
-              </button>
-            </motion.div>
+          {/* INNOVATION: ACTIVITY LOG (Shown only when monitoring) */}
+          {isMonitoring ? (
+            <div className="glass-inner" style={{ padding: '20px' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📋 Activity Log</h4>
+              {activityLog.length > 0 ? (
+                <ul style={{ paddingLeft: '20px', margin: 0, fontSize: '0.9rem', color: '#475569' }}>
+                  {activityLog.map(log => (
+                    <li key={log.id} style={{ marginBottom: '8px' }}>
+                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>Taken:</span> {log.name}
+                    </li>
+                  ))}
+                </ul>
+              ) : <p style={{fontSize:'0.9rem', color: '#94a3b8', fontStyle:'italic'}}>No activity recorded today.</p>}
+            </div>
+          ) : (
+            /* STANDARD WIDGETS (Shown for normal user) */
+            <>
+              {lowStock.length > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  className="glass-inner"
+                  style={{ background: 'rgba(254, 226, 226, 0.95)', border: '1px solid #fecaca' }}
+                >
+                  <h4 style={{ margin: '0 0 10px 0', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    ⚠️ Low Stock Warning
+                  </h4>
+                  <ul style={{ margin: 0, paddingLeft: '20px', color: '#7f1d1d', fontSize: '0.9rem' }}>
+                    {lowStock.slice(0, 3).map((item, idx) => (
+                      <li key={idx} style={{ marginBottom: '4px' }}><b>{item.medicineName}</b> ({item.quantity})</li>
+                    ))}
+                  </ul>
+                  <button onClick={() => setView("inventory")} style={{ marginTop: '12px', background: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', color: '#b91c1c', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', width: '100%' }}>Refill Inventory</button>
+                </motion.div>
+              )}
+
+              <div className="glass-inner" style={{ padding: '20px' }}>
+                  <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>⚡ Quick Ask Gemini</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <button onClick={() => handleAiConsult("Side effects?")} style={{ textAlign: 'left', padding: '10px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.2)', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>💊 Side Effects?</button>
+                    <button onClick={() => handleAiConsult("Food interactions?")} style={{ textAlign: 'left', padding: '10px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.2)', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>🥦 Food Interactions?</button>
+                  </div>
+              </div>
+
+              <div className="glass-inner" style={{ padding: '20px' }}>
+                  <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📞 Emergency Hub</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <button style={{ padding: '12px', borderRadius: '12px', background: '#dcfce7', color: '#166534', border: 'none', fontWeight: '700', cursor: 'pointer' }}>Doctor</button>
+                    <button style={{ padding: '12px', borderRadius: '12px', background: '#fee2e2', color: '#991b1b', border: 'none', fontWeight: '700', cursor: 'pointer' }}>SOS</button>
+                  </div>
+              </div>
+            </>
           )}
-
-           <div className="glass-inner" style={{ padding: '20px' }}>
-              <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>⚡ Quick Ask Gemini</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button 
-                  onClick={() => handleAiConsult("What are common side effects of my medications?")}
-                  style={{ textAlign: 'left', padding: '10px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.2)', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}
-                >
-                  💊 Side Effects?
-                </button>
-                <button 
-                  onClick={() => handleAiConsult("Are there any food interactions with my medicines?")}
-                  style={{ textAlign: 'left', padding: '10px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.2)', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}
-                >
-                  🥦 Food Interactions?
-                </button>
-              </div>
-           </div>
-
-           <div className="glass-inner" style={{ padding: '20px' }}>
-              <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📞 Emergency Hub</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <button style={{ padding: '12px', borderRadius: '12px', background: '#dcfce7', color: '#166534', border: 'none', fontWeight: '700', cursor: 'pointer' }}>
-                  Doctor
-                </button>
-                <button style={{ padding: '12px', borderRadius: '12px', background: '#fee2e2', color: '#991b1b', border: 'none', fontWeight: '700', cursor: 'pointer' }}>
-                  SOS
-                </button>
-              </div>
-           </div>
 
         </aside>
 
@@ -234,27 +236,15 @@ export default function Dashboard({ user, userName, householdId, setView }) {
                boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)', position: 'relative', overflow: 'hidden'
              }}>
                 <div style={{ position: 'absolute', top: -10, right: -10, width: '80px', height: '80px', background: 'rgba(255,255,255,0.2)', borderRadius: '50%' }}></div>
-                
-                <span style={{ fontSize: '0.8rem', opacity: 0.9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  Up Next
-                </span>
+                <span style={{ fontSize: '0.8rem', opacity: 0.9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>Up Next</span>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
                   <div>
                     <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: '800' }}>{nextUpMed.name}</h2>
-                    <p style={{ margin: '5px 0 0 0', opacity: 0.9, fontSize: '1rem' }}>
-                      {nextUpMed.dosage || "Standard Dose"} • {nextUpMed.time || "Scheduled for Today"}
-                    </p>
+                    <p style={{ margin: '5px 0 0 0', opacity: 0.9, fontSize: '1rem' }}>{nextUpMed.dosage || "Standard Dose"} • {nextUpMed.time || "Scheduled"}</p>
                   </div>
-                  <div style={{ fontSize: '2.5rem', background: 'rgba(255,255,255,0.2)', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
-                    💊
-                  </div>
+                  <div style={{ fontSize: '2.5rem', background: 'rgba(255,255,255,0.2)', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>💊</div>
                 </div>
-                <button 
-                  onClick={() => toggleMedStatus(nextUpMed.id, false, nextUpMed.name)}
-                  style={{ marginTop: '15px', background: 'white', color: '#2563eb', border: 'none', padding: '10px 20px', borderRadius: '30px', fontWeight: '700', cursor: 'pointer', width: '100%' }}
-                >
-                  Mark as Taken
-                </button>
+                <button onClick={() => toggleMedStatus(nextUpMed.id, false, nextUpMed.name)} style={{ marginTop: '15px', background: 'white', color: '#2563eb', border: 'none', padding: '10px 20px', borderRadius: '30px', fontWeight: '700', cursor: 'pointer', width: '100%' }}>Mark as Taken</button>
              </div>
           ) : (
             meds.length > 0 && takenCount === totalCount && (
@@ -270,33 +260,18 @@ export default function Dashboard({ user, userName, householdId, setView }) {
               meds.map(med => {
                 const isTaken = med.taken || med.status === "taken";
                 return (
-                  <motion.div 
-                    layout 
-                    initial={{ opacity: 0, y: 10 }} 
-                    animate={{ opacity: 1, y: 0 }}
-                    key={med.id} 
-                    className={`med-row-card ${isTaken ? 'is-taken' : ''}`}
-                  >
+                  <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={med.id} className={`med-row-card ${isTaken ? 'is-taken' : ''}`}>
                     <div className="med-main-content">
                       <div className="checkbox-wrapper" onClick={() => toggleMedStatus(med.id, isTaken, med.name)}>
-                        <div className="custom-checkbox">
-                          {isTaken && (
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          )}
-                        </div>
+                        <div className="custom-checkbox">{isTaken && <span>✓</span>}</div>
                       </div>
                       <div className="med-details">
-                        <h4 className={isTaken ? 'strikethrough' : ''}>
-                          {med.name || "Unknown Medicine"}
-                        </h4>
+                        <h4 className={isTaken ? 'strikethrough' : ''}>{med.name}</h4>
                         <p>{med.dosage || med.dose || "Standard Dose"}</p>
                       </div>
                     </div>
-                    <button className="delete-med-btn" onClick={() => handleDelete(med.id)} title="Remove medicine">
-                      🗑️
-                    </button>
+                    {/* Allow deleting only if NOT monitoring, or allow admin override if desired. Currently allowing all for simplicity. */}
+                    <button className="delete-med-btn" onClick={() => handleDelete(med.id)} title="Remove medicine">🗑️</button>
                   </motion.div>
                 );
               })
@@ -307,48 +282,28 @@ export default function Dashboard({ user, userName, householdId, setView }) {
         </main>
       </div>
 
-      <button className="chat-toggle-btn" onClick={() => setIsChatOpen(true)}>
-        🤖 Ask Gemini
-      </button>
+      {/* Hide AI Chat if monitoring to reduce clutter */}
+      {!isMonitoring && (
+        <button className="chat-toggle-btn" onClick={() => setIsChatOpen(true)}>🤖 Ask Gemini</button>
+      )}
 
       <AnimatePresence>
         {isChatOpen && (
           <>
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              className="chat-overlay" 
-              onClick={() => setIsChatOpen(false)} 
-            />
-            <motion.div 
-              initial={{ x: '100%' }} 
-              animate={{ x: 0 }} 
-              exit={{ x: '100%' }} 
-              transition={{ type: 'tween', duration: 0.3, ease: 'easeOut' }} 
-              className="chat-side-panel glass-inner"
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="chat-overlay" onClick={() => setIsChatOpen(false)} />
+            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'tween', duration: 0.3, ease: 'easeOut' }} className="chat-side-panel glass-inner">
               <div className="panel-header-ai">
                 <h4 className="ai-title">🤖 Gemini Consultant</h4>
                 <button className="close-panel-btn" onClick={() => setIsChatOpen(false)}>✕</button>
               </div>
-              
               <div className="chat-window">
                 {aiHistory.map((msg, i) => (
-                  <motion.div key={i} className={`chat-bubble ${msg.role}`}>
-                    <ReactMarkdown>{msg.text}</ReactMarkdown>
-                  </motion.div>
+                  <motion.div key={i} className={`chat-bubble ${msg.role}`}><ReactMarkdown>{msg.text}</ReactMarkdown></motion.div>
                 ))}
                 {isAiLoading && <p className="loading-text">Gemini is thinking...</p>}
               </div>
-              
               <div className="chat-input-area">
-                <input 
-                  value={aiQuery} 
-                  onChange={(e) => setAiQuery(e.target.value)} 
-                  onKeyPress={(e) => e.key === 'Enter' && handleAiConsult()}
-                  placeholder="Ask about dosage, substitutes..." 
-                />
+                <input value={aiQuery} onChange={(e) => setAiQuery(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAiConsult()} placeholder="Ask about dosage, substitutes..." />
                 <button onClick={() => handleAiConsult()}>Send</button>
               </div>
             </motion.div>

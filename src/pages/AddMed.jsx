@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { db } from "../services/firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { motion } from "framer-motion";
 import "./Dashboard.css";
 
-export default function AddMed({ householdId, setView }) {
+// FIX: Accept targetUid and targetName
+export default function AddMed({ householdId, setView, targetUid, targetName }) {
   const [medName, setMedName] = useState("");
   const [dosage, setDosage] = useState("");
   const [time, setTime] = useState("");
@@ -37,7 +38,12 @@ export default function AddMed({ householdId, setView }) {
           day: day,
           taken: false,
           status: "pending",
-          createdAt: new Date()
+          
+          // FIX: Use the Passed Target ID (The person being monitored)
+          ownerId: targetUid,
+          ownerName: targetName,
+          
+          createdAt: serverTimestamp() 
         })
       );
 
@@ -57,8 +63,13 @@ export default function AddMed({ householdId, setView }) {
       className="dashboard-wrapper"
     >
       <div className="professional-form-card" style={{ margin: '40px auto', maxWidth: '700px' }}>
-        <h2 className="panel-title" style={{ fontSize: '2rem', marginBottom: '10px' }}>New Medication</h2>
-        <p style={{ color: '#64748b', marginBottom: '30px', fontWeight: '600' }}>Add a new medicine to your daily routine.</p>
+        
+        <h2 className="panel-title" style={{ fontSize: '2rem', marginBottom: '5px' }}>New Medication</h2>
+        
+        {/* SAFETY BANNER: Shows who this pill is for */}
+        <p style={{ color: '#64748b', marginBottom: '25px', fontWeight: '600', display:'flex', alignItems:'center', gap:'8px' }}>
+          Adding to schedule for: <span style={{ background:'#e0f2fe', color:'#0284c7', padding:'2px 8px', borderRadius:'6px' }}>{targetName}</span>
+        </p>
         
         <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
           
@@ -98,7 +109,6 @@ export default function AddMed({ householdId, setView }) {
           
           <div className="input-group">
             <label className="input-label">Repeat Days</label>
-            {/* FIX: Days buttons forced into one line */}
             <div className="days-row-container">
               {daysOfWeek.map(day => (
                 <button 
