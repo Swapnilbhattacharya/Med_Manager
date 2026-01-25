@@ -1,10 +1,9 @@
 import React, { useState } from "react";
 import { db } from "../services/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { motion } from "framer-motion";
 import "./Dashboard.css";
 
-// FIX: Accept targetUid and targetName
 export default function AddMed({ householdId, setView, targetUid, targetName }) {
   const [medName, setMedName] = useState("");
   const [dosage, setDosage] = useState("");
@@ -38,16 +37,26 @@ export default function AddMed({ householdId, setView, targetUid, targetName }) 
           day: day,
           taken: false,
           status: "pending",
-          
-          // FIX: Use the Passed Target ID (The person being monitored)
           ownerId: targetUid,
           ownerName: targetName,
-          
           createdAt: serverTimestamp() 
         })
       );
 
       await Promise.all(savePromises);
+
+      // --- INVENTORY CHECK LOGIC ---
+      const invRef = collection(db, "households", householdId, "inventory");
+      const q = query(invRef, where("medicineName", "==", medName)); 
+      const snap = await getDocs(q);
+      
+      let totalStock = 0;
+      snap.docs.forEach(d => { totalStock += Number(d.data().quantity || 0); });
+
+      if (snap.empty || totalStock <= 0) {
+        alert(`⚠️ Medication added to schedule, BUT...\n\n"${medName}" is NOT in your Inventory (or stock is 0).\n\nPlease go to 'Stock' and add it, otherwise you won't be able to mark it as taken.`);
+      }
+
       setView("dashboard"); 
     } catch (err) {
       console.error("Firebase Error:", err);
@@ -66,7 +75,6 @@ export default function AddMed({ householdId, setView, targetUid, targetName }) 
         
         <h2 className="panel-title" style={{ fontSize: '2rem', marginBottom: '5px' }}>New Medication</h2>
         
-        {/* SAFETY BANNER: Shows who this pill is for */}
         <p style={{ color: '#64748b', marginBottom: '25px', fontWeight: '600', display:'flex', alignItems:'center', gap:'8px' }}>
           Adding to schedule for: <span style={{ background:'#e0f2fe', color:'#0284c7', padding:'2px 8px', borderRadius:'6px' }}>{targetName}</span>
         </p>
@@ -82,6 +90,7 @@ export default function AddMed({ householdId, setView, targetUid, targetName }) 
               placeholder="e.g. Paracetamol" 
               style={{ width: '100%' }}
             />
+            <small style={{color:'#94a3b8', marginTop:'5px'}}>Must match the name in Inventory exactly.</small>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>

@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../services/firebase";
-import { collection, getDocs, query } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore"; // Use onSnapshot for real-time updates
 import { motion } from "framer-motion";
-
-// FIX: Point up to the 'pages' folder to find the CSS
 import "../pages/Dashboard.css"; 
 
 export default function InventoryList({ householdId, setView }) {
@@ -11,21 +9,24 @@ export default function InventoryList({ householdId, setView }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchInventory = async () => {
-      if (!householdId) return;
-      try {
-        const invRef = collection(db, "households", householdId, "inventory");
-        const q = query(invRef); 
-        const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setInventory(data);
-      } catch (err) {
-        console.error("Error loading inventory:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchInventory();
+    if (!householdId) return;
+
+    // Use onSnapshot for real-time updates (better for stock management)
+    const invRef = collection(db, "households", householdId, "inventory");
+    const unsubscribe = onSnapshot(invRef, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // FILTER: Remove items with 0 quantity (They "disappear")
+      const availableStock = data.filter(item => Number(item.quantity) > 0);
+      
+      setInventory(availableStock);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error loading inventory:", err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [householdId]);
 
   if (loading) return <div className="loading-screen">✨ Checking Stock Levels...</div>;
@@ -86,9 +87,9 @@ export default function InventoryList({ householdId, setView }) {
           ))
         ) : (
           <div className="empty-state-glass">
-            <p>Your inventory is empty.</p>
+            <p>Your inventory is empty (or all items are out of stock).</p>
             <button className="btn-add-main" style={{margin:'20px auto'}} onClick={() => setView("addInventory")}>
-              Add Your First Item
+              Add Stock
             </button>
           </div>
         )}

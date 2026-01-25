@@ -12,8 +12,9 @@ import "./Dashboard.css";
 
 export default function Dashboard({ user, userName, householdId, setView, targetUid, isMonitoring }) {
   const [meds, setMeds] = useState([]); 
+  const [stockMap, setStockMap] = useState({}); // Maps "Paracetamol" -> Total Qty across batches
   const [lowStock, setLowStock] = useState([]); 
-  const [activityLog, setActivityLog] = useState([]); // NEW: Activity Feed
+  const [activityLog, setActivityLog] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   
@@ -25,16 +26,13 @@ export default function Dashboard({ user, userName, householdId, setView, target
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   const displayGreeting = userName || "User";
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const todayName = dayNames[new Date().getDay()];
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good Morning";
-    if (hour < 17) return "Good Afternoon";
-    return "Good Evening";
+    return hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
   };
-
-  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const todayName = dayNames[new Date().getDay()];
 
   useEffect(() => {
     const loadData = async () => {
@@ -44,22 +42,40 @@ export default function Dashboard({ user, userName, householdId, setView, target
       }
       try {
         // 1. Fetch Schedule for TARGET USER
-        const data = await getUserMeds(householdId, targetUid); // Pass targetUid
+        const data = await getUserMeds(householdId, targetUid); 
         const filteredData = (data || []).filter(m => m.day === todayName);
         setMeds(filteredData);
 
-        // 2. Fetch Global Inventory
+        // 2. NEW: Fetch Inventory & Build Stock Map (Summing Batches)
         const invRef = collection(db, "households", householdId, "inventory");
         const invSnap = await getDocs(invRef);
-        const lowItems = invSnap.docs
-          .map(d => d.data())
-          .filter(item => Number(item.quantity) <= 5); 
+        
+        const map = {};
+        const lowItems = [];
+
+        invSnap.docs.forEach(doc => {
+          const item = doc.data();
+          const qty = Number(item.quantity) || 0;
+          // Normalize name to handle case sensitivity
+          const normName = (item.medicineName || "").trim().toLowerCase();
+          
+          if (qty > 0) {
+            // Add to total stock count
+            map[normName] = (map[normName] || 0) + qty;
+          }
+        });
+
+        // Generate Low Stock Warnings based on TOTALS
+        Object.keys(map).forEach(key => {
+            if (map[key] <= 5) lowItems.push({ name: key, qty: map[key] });
+        });
+
+        setStockMap(map);
         setLowStock(lowItems);
 
-        // 3. Generate Activity Log (Simulated from taken status)
+        // 3. Activity Log (Caregiver Feature)
         const recentActivity = data
             .filter(m => m.taken)
-            // Sort by a generic timestamp for simulation if lastUpdated isn't strictly set on all
             .sort((a, b) => (b.lastUpdated?.seconds || 0) - (a.lastUpdated?.seconds || 0))
             .slice(0, 5);
         setActivityLog(recentActivity);
@@ -71,9 +87,62 @@ export default function Dashboard({ user, userName, householdId, setView, target
       }
     };
     loadData();
-  }, [householdId, todayName, targetUid]); // Re-fetch when target changes
+  }, [householdId, todayName, targetUid]); 
 
-  // --- SMART AI HANDLER ---
+  // --- SMART INVENTORY CONSUMPTION ---
+  const toggleMedStatus = async (medId, currentStatus, medName) => {
+    if (medId === "_") return;
+
+    // Check Stock Before Actions (Unless unticking)
+    const normName = (medName || "").trim().toLowerCase();
+    const currentStock = stockMap[normName] || 0;
+
+    if (!currentStatus && currentStock <= 0) {
+        alert(`❌ Out of Stock! "${medName}" is not available in the inventory.`);
+        return;
+    }
+
+    // Optimistic Update
+    const updatedMeds = meds.map(m => m.id === medId ? { ...m, taken: true } : m);
+    setMeds(updatedMeds);
+
+    try {
+      // 1. Update Schedule Status
+      const medRef = doc(db, "households", householdId, "medicines", medId);
+      await updateDoc(medRef, { taken: true, status: "taken", lastUpdated: serverTimestamp() });
+      
+      // 2. FIFO Consumption: Find oldest batch with stock and decrement
+      if (!currentStatus) {
+        const invRef = collection(db, "households", householdId, "inventory");
+        const q = query(invRef, where("medicineName", "==", medName)); 
+        const querySnapshot = await getDocs(q);
+
+        // Filter batches with qty > 0 and Sort by Creation Time (FIFO)
+        // If no createdAt, we just pick the first one
+        const batches = querySnapshot.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(b => Number(b.quantity) > 0)
+            .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+
+        if (batches.length > 0) {
+            const targetBatch = batches[0]; // Oldest available batch
+            const stockRef = doc(db, "households", householdId, "inventory", targetBatch.id);
+            
+            await updateDoc(stockRef, { 
+                quantity: Number(targetBatch.quantity) - 1,
+                lastUpdated: serverTimestamp() 
+            });
+
+            // Update local map for UI responsiveness
+            setStockMap(prev => ({
+                ...prev,
+                [normName]: prev[normName] - 1
+            }));
+        }
+      }
+    } catch (err) { console.error(err); setMeds(meds); }
+  };
+
   const handleAiConsult = async (directQuery = null) => {
     const queryText = typeof directQuery === 'string' ? directQuery : aiQuery;
     if (!queryText.trim()) return;
@@ -86,43 +155,20 @@ export default function Dashboard({ user, userName, householdId, setView, target
 
     const medListString = meds.length > 0 
       ? meds.map(m => `${m.name} (${m.dosage || 'unknown dose'})`).join(", ")
-      : "No active medications currently scheduled for today.";
+      : "No active medications.";
 
     const fullContextPrompt = `
-      CONTEXT: The user is a patient taking the following medications today: [${medListString}].
+      CONTEXT: Patient meds: [${medListString}].
       USER QUESTION: ${queryText}
-      INSTRUCTION: Answer the user's question specifically regarding the medications listed above if relevant. Keep it concise.
     `;
 
     try {
       const response = await getMedicineAlternative(fullContextPrompt);
       setAiHistory(prev => [...prev, { role: 'bot', text: response }]);
     } catch (err) {
-      setAiHistory(prev => [...prev, { role: 'bot', text: "Sorry, I'm having trouble connecting right now." }]);
+      setAiHistory(prev => [...prev, { role: 'bot', text: "Connection error." }]);
     }
     setIsAiLoading(false);
-  };
-
-  const toggleMedStatus = async (medId, currentStatus, medName) => {
-    if (currentStatus || medId === "_") return; 
-    const updatedMeds = meds.map(m => m.id === medId ? { ...m, taken: true } : m);
-    setMeds(updatedMeds);
-    try {
-      const medRef = doc(db, "households", householdId, "medicines", medId);
-      await updateDoc(medRef, { taken: true, status: "taken", lastUpdated: serverTimestamp() });
-      
-      const inventoryRef = collection(db, "households", householdId, "inventory");
-      const q = query(inventoryRef, where("medicineName", "==", medName));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        const stockDoc = querySnapshot.docs[0];
-        const stockRef = doc(db, "households", householdId, "inventory", stockDoc.id);
-        const currentQty = stockDoc.data().quantity || 0;
-        if (currentQty > 0) {
-          await updateDoc(stockRef, { quantity: currentQty - 1, lastUpdated: serverTimestamp() });
-        }
-      }
-    } catch (err) { console.error(err); setMeds(meds); }
   };
 
   const handleDelete = async (medId) => {
@@ -139,7 +185,9 @@ export default function Dashboard({ user, userName, householdId, setView, target
   const takenCount = meds.filter(m => m.taken || m.status === "taken").length;
   const totalCount = meds.length;
   const pendingCount = totalCount - takenCount;
-  const nextUpMed = meds.find(m => !m.taken && m.status !== "taken");
+  
+  // Find next pending med that HAS STOCK
+  const nextUpMed = meds.find(m => !m.taken && (stockMap[(m.name||"").toLowerCase()] || 0) > 0);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="dashboard-wrapper">
@@ -166,7 +214,6 @@ export default function Dashboard({ user, userName, householdId, setView, target
             </div>
           </motion.div>
 
-          {/* INNOVATION: ACTIVITY LOG (Shown only when monitoring) */}
           {isMonitoring ? (
             <div className="glass-inner" style={{ padding: '20px' }}>
               <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📋 Activity Log</h4>
@@ -181,7 +228,6 @@ export default function Dashboard({ user, userName, householdId, setView, target
               ) : <p style={{fontSize:'0.9rem', color: '#94a3b8', fontStyle:'italic'}}>No activity recorded today.</p>}
             </div>
           ) : (
-            /* STANDARD WIDGETS (Shown for normal user) */
             <>
               {lowStock.length > 0 && (
                 <motion.div 
@@ -189,12 +235,10 @@ export default function Dashboard({ user, userName, householdId, setView, target
                   className="glass-inner"
                   style={{ background: 'rgba(254, 226, 226, 0.95)', border: '1px solid #fecaca' }}
                 >
-                  <h4 style={{ margin: '0 0 10px 0', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    ⚠️ Low Stock Warning
-                  </h4>
+                  <h4 style={{ margin: '0 0 10px 0', color: '#b91c1c' }}>⚠️ Low Stock Warning</h4>
                   <ul style={{ margin: 0, paddingLeft: '20px', color: '#7f1d1d', fontSize: '0.9rem' }}>
                     {lowStock.slice(0, 3).map((item, idx) => (
-                      <li key={idx} style={{ marginBottom: '4px' }}><b>{item.medicineName}</b> ({item.quantity})</li>
+                      <li key={idx} style={{ marginBottom: '4px' }}><b>{item.name}</b> (Qty: {item.qty})</li>
                     ))}
                   </ul>
                   <button onClick={() => setView("inventory")} style={{ marginTop: '12px', background: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', color: '#b91c1c', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', width: '100%' }}>Refill Inventory</button>
@@ -259,18 +303,41 @@ export default function Dashboard({ user, userName, householdId, setView, target
             {meds.length > 0 ? (
               meds.map(med => {
                 const isTaken = med.taken || med.status === "taken";
+                const normName = (med.name || "").trim().toLowerCase();
+                const stockQty = stockMap[normName] || 0;
+                // DISABLE if: Not taken yet AND stock is 0
+                const isDisabled = !isTaken && stockQty <= 0;
+
                 return (
-                  <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={med.id} className={`med-row-card ${isTaken ? 'is-taken' : ''}`}>
+                  <motion.div 
+                    layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} 
+                    key={med.id} 
+                    className={`med-row-card ${isTaken ? 'is-taken' : ''}`}
+                    style={isDisabled ? { opacity: 0.6, background: '#f8fafc' } : {}}
+                  >
                     <div className="med-main-content">
-                      <div className="checkbox-wrapper" onClick={() => toggleMedStatus(med.id, isTaken, med.name)}>
+                      <div 
+                        className="checkbox-wrapper" 
+                        onClick={() => !isDisabled && toggleMedStatus(med.id, isTaken, med.name)}
+                        style={isDisabled ? { cursor: 'not-allowed', borderColor: '#e2e8f0', background: '#e2e8f0' } : {}}
+                      >
                         <div className="custom-checkbox">{isTaken && <span>✓</span>}</div>
                       </div>
                       <div className="med-details">
-                        <h4 className={isTaken ? 'strikethrough' : ''}>{med.name}</h4>
-                        <p>{med.dosage || med.dose || "Standard Dose"}</p>
+                        <h4 className={isTaken ? 'strikethrough' : ''}>
+                          {med.name}
+                          {isDisabled && (
+                            <span style={{ 
+                                marginLeft: '8px', fontSize: '0.65rem', background: '#ef4444', 
+                                color: 'white', padding: '2px 6px', borderRadius: '4px', verticalAlign:'middle' 
+                            }}>
+                                OUT OF STOCK
+                            </span>
+                          )}
+                        </h4>
+                        <p>{med.dosage || "Standard Dose"}</p>
                       </div>
                     </div>
-                    {/* Allow deleting only if NOT monitoring, or allow admin override if desired. Currently allowing all for simplicity. */}
                     <button className="delete-med-btn" onClick={() => handleDelete(med.id)} title="Remove medicine">🗑️</button>
                   </motion.div>
                 );
@@ -282,7 +349,6 @@ export default function Dashboard({ user, userName, householdId, setView, target
         </main>
       </div>
 
-      {/* Hide AI Chat if monitoring to reduce clutter */}
       {!isMonitoring && (
         <button className="chat-toggle-btn" onClick={() => setIsChatOpen(true)}>🤖 Ask Gemini</button>
       )}
