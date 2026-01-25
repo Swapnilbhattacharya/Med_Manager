@@ -7,13 +7,14 @@ export default function TopNav({
   setView, currentView, user, userName, familyName, householdId, 
   setMonitoringTarget, monitoringTarget 
 }) {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isFamilyOpen, setIsFamilyOpen] = useState(false); // NEW: Separate state for Family Menu
   const [familyMembers, setFamilyMembers] = useState([]);
-  const dropdownRef = useRef(null);
+  
+  const profileRef = useRef(null);
+  const familyRef = useRef(null);
 
   useEffect(() => {
-    // Fetch family members for the monitoring list
     const fetchFamily = async () => {
       if (householdId) {
         try {
@@ -28,105 +29,129 @@ export default function TopNav({
     fetchFamily();
 
     function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
+      if (profileRef.current && !profileRef.current.contains(event.target)) setIsProfileOpen(false);
+      if (familyRef.current && !familyRef.current.contains(event.target)) setIsFamilyOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [householdId, user.uid]);
 
-  const handleCopyId = () => {
-    if (householdId) {
-      navigator.clipboard.writeText(householdId);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    }
-  };
-
-  const handleSwitchUser = () => {
-    setIsDropdownOpen(false); 
-    setView("switchUser");   
-  };
-
   const handleMonitorSelect = (member) => {
     setMonitoringTarget(member);
     setView("dashboard");
-    setIsDropdownOpen(false);
+    setIsFamilyOpen(false);
+  };
+
+  const handleStopMonitoring = () => {
+    setMonitoringTarget(null);
+    setIsFamilyOpen(false);
+    setView("dashboard");
   };
 
   const initial = userName ? userName.charAt(0).toUpperCase() : "U";
 
   return (
-    <nav className="top-nav" style={monitoringTarget ? { background: '#d97706' } : {}}>
+    // If monitoring, change the entire nav bar color to indicate "Admin Mode"
+    <nav className={`top-nav ${monitoringTarget ? 'monitoring-mode' : ''}`}>
+      
       <div className="brand" onClick={() => setView("dashboard")}>
-        💊 <span>{monitoringTarget ? `Viewing: ${monitoringTarget.name}` : "Med Manager"}</span>
+        💊 <span>Med Manager</span>
       </div>
 
       <div className="nav-links">
+        
+        {/* --- NEW: DEDICATED FAMILY MONITOR BUTTON --- */}
+        <div className="nav-dropdown-container" ref={familyRef}>
+          <button 
+            className={`nav-btn family-btn ${monitoringTarget ? 'active-monitor' : ''} ${isFamilyOpen ? 'open' : ''}`} 
+            onClick={() => setIsFamilyOpen(!isFamilyOpen)}
+          >
+            {monitoringTarget ? (
+              <>👁️ Viewing: {monitoringTarget.name}</>
+            ) : (
+              <>👨‍👩‍👧 Family</>
+            )}
+          </button>
+
+          {isFamilyOpen && (
+            <div className="dropdown-menu family-menu">
+              <h4 className="menu-title">Select Member to Monitor</h4>
+              
+              <div className="family-list">
+                {/* Option to go back to MY view */}
+                <button 
+                  className={`family-item ${!monitoringTarget ? 'current' : ''}`}
+                  onClick={handleStopMonitoring}
+                >
+                  <span className="avatar-small">👤</span>
+                  <div>
+                    <span className="name">My Dashboard</span>
+                    <span className="role">Admin (You)</span>
+                  </div>
+                  {!monitoringTarget && <span className="check">✓</span>}
+                </button>
+
+                <div className="divider"></div>
+
+                {/* List of other members */}
+                {familyMembers.length > 0 ? familyMembers.map(member => (
+                  <button 
+                    key={member.uid}
+                    className={`family-item ${monitoringTarget?.uid === member.uid ? 'current' : ''}`}
+                    onClick={() => handleMonitorSelect(member)}
+                  >
+                    <span className="avatar-small">👴</span>
+                    <div>
+                      <span className="name">{member.name}</span>
+                      <span className="role">Dependent</span>
+                    </div>
+                    {monitoringTarget?.uid === member.uid && <span className="check">✓</span>}
+                  </button>
+                )) : (
+                  <div style={{padding:'10px', color:'#94a3b8', fontStyle:'italic'}}>No other members.</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        {/* ------------------------------------------- */}
+
+        <div className="divider-vertical"></div>
+
         <button className={`nav-btn ${currentView === "dashboard" ? "active" : ""}`} onClick={() => setView("dashboard")}>🏠 Dashboard</button>
         <button className={`nav-btn ${currentView === "inventory" ? "active" : ""}`} onClick={() => setView("inventory")}>📦 Stock</button>
         <button className={`nav-btn ${currentView === "calendar" ? "active" : ""}`} onClick={() => setView("calendar")}>📅 Calendar</button>
         <button className={`nav-btn ${currentView === "addMed" ? "active" : ""}`} onClick={() => setView("addMed")}>➕ Add Med</button>
 
-        <div className="profile-container" ref={dropdownRef}>
-          <div className="profile-btn" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
-            {monitoringTarget ? "👁️" : initial}
+        {/* --- PROFILE DROPDOWN (Cleaned Up) --- */}
+        <div className="profile-container" ref={profileRef}>
+          <div className="profile-btn" onClick={() => setIsProfileOpen(!isProfileOpen)}>
+            {initial}
           </div>
 
-          {isDropdownOpen && (
-            <div className="dropdown-menu" style={{ width: '320px' }}>
+          {isProfileOpen && (
+            <div className="dropdown-menu profile-menu">
               <div className="user-info">
-                <h4 className="user-name">{userName || "User"}</h4>
-                <span className="household-label">{familyName || "My Family"}</span>
-                
-                {householdId && (
-                  <div className="id-box">
-                    <span className="id-text">{householdId.substring(0, 8)}...</span>
-                    <span className="copy-icon" onClick={handleCopyId}>{copySuccess ? "✅" : "📋"}</span>
-                  </div>
-                )}
-
-                {monitoringTarget && (
-                  <button 
-                    onClick={() => { setMonitoringTarget(null); setIsDropdownOpen(false); }}
-                    style={{ marginTop: '10px', width: '100%', padding: '8px', background: '#e0f2fe', color: '#0284c7', border: '1px solid #bae6fd', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
-                    🔙 Stop Monitoring
-                  </button>
-                )}
-              </div>
-
-              {/* INNOVATION: MONITORING SECTION */}
-              <div style={{ padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Monitor Family Member
-                </span>
-                <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  {familyMembers.length > 0 ? familyMembers.map(member => (
-                    <button 
-                      key={member.uid}
-                      onClick={() => handleMonitorSelect(member)}
-                      style={{ 
-                        textAlign: 'left', padding: '10px', background: 'white', border: '1px solid #e2e8f0', 
-                        borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', transition: '0.2s'
-                      }}
-                      className="menu-item"
-                    >
-                      <span style={{ fontSize: '1.2rem' }}>🧓</span> 
-                      {member.name}
-                    </button>
-                  )) : <p style={{ fontSize: '0.8rem', color: '#cbd5e1', fontStyle: 'italic' }}>No other members found.</p>}
+                <h4 className="user-name">{userName}</h4>
+                <span className="household-label">{familyName}</span>
+                <div className="id-box">
+                  <span className="id-text">{householdId?.substring(0, 8)}...</span>
+                  <button className="copy-icon" onClick={() => navigator.clipboard.writeText(householdId)}>📋</button>
                 </div>
               </div>
 
               <div className="menu-actions">
-                <button className="menu-item" onClick={handleSwitchUser}>🔄 Switch User</button>
-                <button className="menu-item logout" onClick={() => auth.signOut()}>🚪 Logout</button>
+                <button className="menu-item" onClick={() => { setIsProfileOpen(false); setView("switchUser"); }}>
+                  🔄 Switch User
+                </button>
+                <button className="menu-item logout" onClick={() => auth.signOut()}>
+                  🚪 Logout
+                </button>
               </div>
             </div>
           )}
         </div>
+
       </div>
     </nav>
   );
