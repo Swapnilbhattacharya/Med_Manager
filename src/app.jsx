@@ -3,6 +3,7 @@ import { auth, db } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, getDoc } from "firebase/firestore";
 
+// --- COMPONENT IMPORTS (CHECKING ALL) ---
 import Login from "./pages/login"; 
 import Dashboard from "./pages/Dashboard"; 
 import Calendar from "./pages/Calendar"; 
@@ -12,6 +13,7 @@ import AddInventory from "./pages/AddInventory";
 import InventoryList from "./Components/InventoryList"; 
 import TopNav from "./Components/TopNav"; 
 import SwitchUser from "./pages/SwitchUser"; 
+import Settings from "./pages/Settings"; // <-- Ensure this file exists!
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -104,19 +106,28 @@ export default function App() {
           <Calendar householdId={householdId} setView={setView} targetUid={targetUid} />
         )}
         
-        {/* FIX: Pass targetUid and targetName to AddMed */}
         {currentView === "addMed" && (
           <AddMed 
             householdId={householdId} 
             setView={setView} 
-            targetUid={targetUid}     // <--- The person getting the med
-            targetName={targetName}   // <--- Their name
+            targetUid={targetUid}     
+            targetName={targetName}   
+            user={user} // Pass user object for Admin logic if needed
           />
         )}
         
         {currentView === "inventory" && <InventoryList householdId={householdId} setView={setView} />}
         {currentView === "addInventory" && <AddInventory householdId={householdId} setView={setView} />}
         {currentView === "switchUser" && <SwitchUser householdId={householdId} setView={setView} currentUser={user} />}
+        
+        {/* SETTINGS PAGE */}
+        {currentView === "settings" && (
+          <Settings 
+            user={user} 
+            householdId={householdId} 
+            setView={setView} 
+          />
+        )}
       </main>
     </div>
   );

@@ -8,7 +8,7 @@ export default function TopNav({
   setMonitoringTarget, monitoringTarget 
 }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isFamilyOpen, setIsFamilyOpen] = useState(false); // NEW: Separate state for Family Menu
+  const [isFamilyOpen, setIsFamilyOpen] = useState(false); 
   const [familyMembers, setFamilyMembers] = useState([]);
   
   const profileRef = useRef(null);
@@ -51,7 +51,6 @@ export default function TopNav({
   const initial = userName ? userName.charAt(0).toUpperCase() : "U";
 
   return (
-    // If monitoring, change the entire nav bar color to indicate "Admin Mode"
     <nav className={`top-nav ${monitoringTarget ? 'monitoring-mode' : ''}`}>
       
       <div className="brand" onClick={() => setView("dashboard")}>
@@ -60,7 +59,7 @@ export default function TopNav({
 
       <div className="nav-links">
         
-        {/* --- NEW: DEDICATED FAMILY MONITOR BUTTON --- */}
+        {/* --- FAMILY MONITOR BUTTON (Always visible to allow exiting mode) --- */}
         <div className="nav-dropdown-container" ref={familyRef}>
           <button 
             className={`nav-btn family-btn ${monitoringTarget ? 'active-monitor' : ''} ${isFamilyOpen ? 'open' : ''}`} 
@@ -78,7 +77,6 @@ export default function TopNav({
               <h4 className="menu-title">Select Member to Monitor</h4>
               
               <div className="family-list">
-                {/* Option to go back to MY view */}
                 <button 
                   className={`family-item ${!monitoringTarget ? 'current' : ''}`}
                   onClick={handleStopMonitoring}
@@ -93,7 +91,6 @@ export default function TopNav({
 
                 <div className="divider"></div>
 
-                {/* List of other members */}
                 {familyMembers.length > 0 ? familyMembers.map(member => (
                   <button 
                     key={member.uid}
@@ -114,7 +111,6 @@ export default function TopNav({
             </div>
           )}
         </div>
-        {/* ------------------------------------------- */}
 
         <div className="divider-vertical"></div>
 
@@ -123,34 +119,41 @@ export default function TopNav({
         <button className={`nav-btn ${currentView === "calendar" ? "active" : ""}`} onClick={() => setView("calendar")}>📅 Calendar</button>
         <button className={`nav-btn ${currentView === "addMed" ? "active" : ""}`} onClick={() => setView("addMed")}>➕ Add Med</button>
 
-        {/* --- PROFILE DROPDOWN (Cleaned Up) --- */}
-        <div className="profile-container" ref={profileRef}>
-          <div className="profile-btn" onClick={() => setIsProfileOpen(!isProfileOpen)}>
-            {initial}
-          </div>
+        {/* --- PROFILE DROPDOWN (HIDDEN WHEN MONITORING) --- */}
+        {!monitoringTarget && (
+          <div className="profile-container" ref={profileRef}>
+            <div className="profile-btn" onClick={() => setIsProfileOpen(!isProfileOpen)}>
+              {initial}
+            </div>
 
-          {isProfileOpen && (
-            <div className="dropdown-menu profile-menu">
-              <div className="user-info">
-                <h4 className="user-name">{userName}</h4>
-                <span className="household-label">{familyName}</span>
-                <div className="id-box">
-                  <span className="id-text">{householdId?.substring(0, 8)}...</span>
-                  <button className="copy-icon" onClick={() => navigator.clipboard.writeText(householdId)}>📋</button>
+            {isProfileOpen && (
+              <div className="dropdown-menu profile-menu">
+                <div className="user-info">
+                  <h4 className="user-name">{userName}</h4>
+                  <span className="household-label">{familyName}</span>
+                  <div className="id-box">
+                    <span className="id-text">{householdId?.substring(0, 8)}...</span>
+                    <button className="copy-icon" onClick={() => navigator.clipboard.writeText(householdId)}>📋</button>
+                  </div>
+                </div>
+
+                <div className="menu-actions">
+                  <button className="menu-item" onClick={() => { setIsProfileOpen(false); setView("switchUser"); }}>
+                    🔄 Switch User
+                  </button>
+                  
+                  <button className="menu-item" onClick={() => { setIsProfileOpen(false); setView("settings"); }}>
+                    ⚙️ Settings
+                  </button>
+                  
+                  <button className="menu-item logout" onClick={() => auth.signOut()}>
+                    🚪 Logout
+                  </button>
                 </div>
               </div>
-
-              <div className="menu-actions">
-                <button className="menu-item" onClick={() => { setIsProfileOpen(false); setView("switchUser"); }}>
-                  🔄 Switch User
-                </button>
-                <button className="menu-item logout" onClick={() => auth.signOut()}>
-                  🚪 Logout
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
       </div>
     </nav>
