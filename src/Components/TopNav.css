@@ -1,6 +1,9 @@
 /* Import a friendly, rounded font */
 @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&display=swap');
 
+/* ============================================================
+   1. MAIN NAVIGATION BAR
+   ============================================================ */
 .top-nav {
   display: flex;
   justify-content: space-between;
@@ -34,7 +37,11 @@
   align-items: center;
 }
 
-.nav-links button {
+/* ============================================================
+   2. NAVIGATION BUTTONS (Glassmorphism)
+   ============================================================ */
+/* We target .nav-btn now to match the React code */
+.nav-btn {
   /* Glassmorphism Effect: Translucent background */
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(4px);
@@ -52,35 +59,166 @@
 }
 
 /* Friendly Hover: Glow and slight grow */
-.nav-links button:hover {
+.nav-btn:hover {
   background: rgba(255, 255, 255, 0.25);
   transform: translateY(-3px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 /* Active Button: High contrast and soft shadow */
-.nav-links button.active {
+.nav-btn.active {
   background: #ffffff;
   color: #4f46e5;
   border-color: #ffffff;
   box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2);
 }
 
-/* Sophisticated Logout Button */
-.nav-links button.logout {
-  background: rgba(248, 113, 113, 0.2);
-  border: 1px solid rgba(248, 113, 113, 0.3);
-  color: #fecaca;
-  margin-left: 8px;
-}
-
-.nav-links button.logout:hover {
-  background: #ef4444;
-  color: white;
-  border-color: #ef4444;
-  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.2);
-}
-
-.nav-links button:active {
+.nav-btn:active {
   transform: scale(0.94);
+}
+
+/* ============================================================
+   3. PROFILE DROPDOWN & MENU
+   ============================================================ */
+
+.profile-container {
+  position: relative; /* Anchor point for the absolute dropdown */
+  margin-left: 10px;
+}
+
+/* The Circular Avatar Button */
+.profile-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.profile-btn:hover {
+  background: #ffffff;
+  transform: scale(1.1);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+}
+
+/* The Dropdown Menu (White Box) */
+.dropdown-menu {
+  position: absolute;
+  top: 60px;
+  right: 0;
+  width: 280px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  padding: 20px;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  
+  /* Animation */
+  animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top right;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* User Info Section */
+.user-info {
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+}
+
+.user-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1e3a8a; /* Deep Blue */
+  margin: 0;
+}
+
+.household-label {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 600;
+  margin-top: 4px;
+  display: block;
+}
+
+/* The ID Copy Box */
+.id-box {
+  background: #f8fafc;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.id-text {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.85rem;
+  color: #475569;
+  background: none;
+}
+
+.copy-icon {
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.copy-icon:hover {
+  background: #e2e8f0;
+}
+
+/* Menu Actions (Logout / Switch) */
+.menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menu-item {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: all 0.2s;
+  width: 100%;
+  font-family: 'Quicksand', sans-serif;
+}
+
+.menu-item:hover {
+  background: #f1f5f9;
+  color: #2563eb;
+  padding-left: 18px; /* Slide effect */
+}
+
+/* Logout Specifics (Red) */
+.menu-item.logout {
+  color: #ef4444;
+  margin-top: 5px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.menu-item.logout:hover {
+  background: #fee2e2;
+  color: #dc2626;
 }

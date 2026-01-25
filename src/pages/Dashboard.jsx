@@ -17,7 +17,8 @@ import { getMedicineAlternative } from "../services/aiService";
 import ProgressRing from "../Components/ProgressRing";
 import "./Dashboard.css";
 
-export default function Dashboard({ user, householdId, setView }) {
+// ACCEPT userName PROP HERE
+export default function Dashboard({ user, userName, householdId, setView }) {
   const [meds, setMeds] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -29,7 +30,8 @@ export default function Dashboard({ user, householdId, setView }) {
   ]);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  const userName = user?.email?.split('@')[0] || "User";
+  // Use the name passed from App.jsx, fallback to 'User'
+  const displayGreeting = userName || "User";
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -132,13 +134,12 @@ export default function Dashboard({ user, householdId, setView }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="dashboard-wrapper">
       
-      {/* HEADER: Cleaned up (ID removed) */}
       <header className="dash-header">
         <div className="welcome-area">
-          <h1>{getGreeting()}, <span className="highlight-name">{userName}</span> ✨</h1>
+          {/* Use the new displayGreeting variable here */}
+          <h1>{getGreeting()}, <span className="highlight-name">{displayGreeting}</span> ✨</h1>
           <p>Schedule for <span className="count-tag">{todayName}</span></p>
         </div>
-        {/* The ID text is completely gone now */}
       </header>
 
       <div className="main-grid">

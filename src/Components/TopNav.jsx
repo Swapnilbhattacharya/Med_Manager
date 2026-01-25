@@ -1,51 +1,78 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { auth } from "../services/firebase";
 import "./TopNav.css";
 
-export default function TopNav({ setView, currentView }) {
+export default function TopNav({ setView, currentView, user, userName, familyName, householdId }) {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleCopyId = () => {
+    if (householdId) {
+      navigator.clipboard.writeText(householdId);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+  };
+
+  // User Initial for Avatar (From Real Name)
+  const initial = userName ? userName.charAt(0).toUpperCase() : "U";
+
   return (
     <nav className="top-nav">
-      <div className="brand" onClick={() => setView("dashboard")} style={{ cursor: 'pointer' }}>
+      <div className="brand" onClick={() => setView("dashboard")}>
         💊 <span>Med Manager</span>
       </div>
 
       <div className="nav-links">
-        {/* Dashboard Button */}
-        <button 
-          className={currentView === "dashboard" ? "active" : ""} 
-          onClick={() => setView("dashboard")}
-        >
-          🏠 Dashboard
-        </button>
+        <button className={`nav-btn ${currentView === "dashboard" ? "active" : ""}`} onClick={() => setView("dashboard")}>🏠 Dashboard</button>
+        <button className={`nav-btn ${currentView === "inventory" ? "active" : ""}`} onClick={() => setView("inventory")}>📦 Stock</button>
+        <button className={`nav-btn ${currentView === "calendar" ? "active" : ""}`} onClick={() => setView("calendar")}>📅 Calendar</button>
+        <button className={`nav-btn ${currentView === "addMed" ? "active" : ""}`} onClick={() => setView("addMed")}>➕ Add Med</button>
 
-        {/* NEW: Stock Manager Button (Placed here as requested) */}
-        <button 
-          className={currentView === "inventory" ? "active" : ""} 
-          onClick={() => setView("inventory")}
-        >
-          📦 Stock Manager
-        </button>
+        {/* PROFILE DROPDOWN */}
+        <div className="profile-container" ref={dropdownRef}>
+          <div className="profile-btn" onClick={() => setIsDropdownOpen(!isDropdownOpen)} title="Profile">
+            {initial}
+          </div>
 
-        {/* Calendar Button */}
-        <button 
-          className={currentView === "calendar" ? "active" : ""} 
-          onClick={() => setView("calendar")}
-        >
-          📅 Calendar
-        </button>
+          {isDropdownOpen && (
+            <div className="dropdown-menu">
+              <div className="user-info">
+                {/* SHOW REAL NAME */}
+                <h4 className="user-name">{userName || "User"}</h4>
+                {/* SHOW FAMILY NAME */}
+                <span className="household-label">{familyName || "My Family"}</span>
+                
+                {householdId && (
+                  <div className="id-box">
+                    <span className="id-text">{householdId.substring(0, 8)}...</span>
+                    <span className="copy-icon" onClick={handleCopyId} title="Copy ID">{copySuccess ? "✅" : "📋"}</span>
+                  </div>
+                )}
+              </div>
 
-        {/* Add Med Button */}
-        <button 
-          className={currentView === "addMed" ? "active" : ""} 
-          onClick={() => setView("addMed")}
-        >
-          ➕ Add Med
-        </button>
-
-        {/* Logout Button */}
-        <button className="logout" onClick={() => auth.signOut()}>
-          🚪 Logout
-        </button>
+              <div className="menu-actions">
+                <button className="menu-item" onClick={() => { if(window.confirm("Switch user? You will be logged out.")) auth.signOut(); }}>
+                  🔄 Switch User
+                </button>
+                <button className="menu-item logout" onClick={() => auth.signOut()}>
+                  🚪 Logout
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </nav>
   );
