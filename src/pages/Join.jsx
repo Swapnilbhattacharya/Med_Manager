@@ -1,14 +1,15 @@
 import React, { useState } from "react";
-import { db } from "../services/firebase";
-import { doc, setDoc, updateDoc, getDoc, addDoc, collection } from "firebase/firestore";
+import { db, auth } from "../services/firebase"; // Added 'auth'
+import { doc, setDoc, updateDoc, getDoc, addDoc, collection, deleteDoc } from "firebase/firestore"; // Added 'deleteDoc'
+import { deleteUser } from "firebase/auth"; // Added for account deletion
 import { motion } from "framer-motion";
-import "./Dashboard.css"; // Uses shared glass styles
+import "./Dashboard.css"; 
 
 export default function Join({ user, setView }) {
   const [activeTab, setActiveTab] = useState("create");
   const [familyName, setFamilyName] = useState("");
   const [householdIdInput, setHouseholdIdInput] = useState("");
-  const [userName, setUserName] = useState(""); // NEW: Capture Name
+  const [userName, setUserName] = useState(""); 
   const [loading, setLoading] = useState(false);
 
   const createHousehold = async () => {
@@ -26,7 +27,7 @@ export default function Join({ user, setView }) {
       // 2. Link User & Save Name
       await updateDoc(doc(db, "users", user.uid), {
         householdId: houseRef.id,
-        name: userName.trim() // Saving the name here
+        name: userName.trim() 
       });
 
     } catch (error) {
@@ -69,6 +70,28 @@ export default function Join({ user, setView }) {
       console.error(error);
       alert("Error joining household.");
     } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- NEW: DELETE ACCOUNT FUNCTION ---
+  const handleDeleteAccount = async () => {
+    const confirmMsg = "Are you sure? This will permanently delete your account. This action cannot be undone.";
+    if (!window.confirm(confirmMsg)) return;
+
+    setLoading(true);
+    try {
+      // 1. Delete Firestore User Doc
+      await deleteDoc(doc(db, "users", user.uid));
+      
+      // 2. Delete Authentication User
+      await deleteUser(auth.currentUser);
+      
+      alert("Account deleted.");
+      // The App.jsx auth listener will handle the redirect to login
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting account. You may need to re-login first.");
       setLoading(false);
     }
   };
@@ -148,6 +171,25 @@ export default function Join({ user, setView }) {
             </button>
           </motion.div>
         )}
+
+        {/* --- DELETE ACCOUNT LINK (Added at bottom) --- */}
+        <div style={{ marginTop: '30px', borderTop: '1px solid #e2e8f0', paddingTop: '15px', textAlign: 'center' }}>
+          <button 
+            onClick={handleDeleteAccount}
+            disabled={loading}
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              color: '#ef4444', 
+              fontSize: '0.85rem', 
+              cursor: 'pointer',
+              textDecoration: 'underline'
+            }}
+          >
+            I want to delete my account
+          </button>
+        </div>
+
       </div>
     </div>
   );
