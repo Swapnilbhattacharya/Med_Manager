@@ -3,34 +3,26 @@ import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from 'react-markdown'; 
 import { db } from "../services/firebase"; 
 import { 
-  doc, 
-  updateDoc, 
-  deleteDoc, 
-  serverTimestamp, 
-  collection, 
-  query, 
-  where, 
-  getDocs 
+  doc, updateDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs 
 } from "firebase/firestore"; 
 import { getUserMeds } from "../services/medService";
 import { getMedicineAlternative } from "../services/aiService"; 
 import ProgressRing from "../Components/ProgressRing";
 import "./Dashboard.css";
 
-// ACCEPT userName PROP HERE
 export default function Dashboard({ user, userName, householdId, setView }) {
   const [meds, setMeds] = useState([]); 
+  const [lowStock, setLowStock] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   
   // AI State
   const [aiQuery, setAiQuery] = useState("");
   const [aiHistory, setAiHistory] = useState([
-    { role: 'bot', text: "Hello! I'm your AI Medical Assistant. Need a substitute or info about your meds?" }
+    { role: 'bot', text: "Hello! I know your schedule. Ask me about side effects, interactions, or food advice!" }
   ]);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // Use the name passed from App.jsx, fallback to 'User'
   const displayGreeting = userName || "User";
 
   const getGreeting = () => {
@@ -46,16 +38,25 @@ export default function Dashboard({ user, userName, householdId, setView }) {
   useEffect(() => {
     const loadData = async () => {
       if (!householdId) { 
-        console.warn("Dashboard: Waiting for householdId...");
         setLoading(false); 
         return; 
       }
       try {
+        // 1. Fetch Schedule
         const data = await getUserMeds(householdId);
         const filteredData = (data || []).filter(m => m.day === todayName);
         setMeds(filteredData);
+
+        // 2. Fetch Inventory for Low Stock
+        const invRef = collection(db, "households", householdId, "inventory");
+        const invSnap = await getDocs(invRef);
+        const lowItems = invSnap.docs
+          .map(d => d.data())
+          .filter(item => Number(item.quantity) <= 5); 
+        setLowStock(lowItems);
+
       } catch (err) {
-        console.error("Error loading meds:", err); 
+        console.error("Error loading data:", err); 
       } finally { 
         setLoading(false); 
       }
@@ -63,14 +64,35 @@ export default function Dashboard({ user, userName, householdId, setView }) {
     loadData();
   }, [householdId, todayName]);
 
-  const handleAiConsult = async () => {
-    if (!aiQuery.trim()) return;
-    const userMsg = { role: 'user', text: aiQuery };
+  // --- SMART AI HANDLER (THE FIX) ---
+  const handleAiConsult = async (directQuery = null) => {
+    const queryText = typeof directQuery === 'string' ? directQuery : aiQuery;
+    
+    if (!queryText.trim()) return;
+
+    if (directQuery) setIsChatOpen(true);
+
+    // 1. Show the USER'S question in the chat UI (Short & Clean)
+    const userMsg = { role: 'user', text: queryText };
     setAiHistory(prev => [...prev, userMsg]);
-    setAiQuery("");
+    setAiQuery(""); 
     setIsAiLoading(true);
+
+    // 2. Build the CONTEXT string (The "Secret" Info for Gemini)
+    // We list the meds so it knows what you are taking.
+    const medListString = meds.length > 0 
+      ? meds.map(m => `${m.name} (${m.dosage || 'unknown dose'})`).join(", ")
+      : "No active medications currently scheduled for today.";
+
+    const fullContextPrompt = `
+      CONTEXT: The user is a patient taking the following medications today: [${medListString}].
+      USER QUESTION: ${queryText}
+      INSTRUCTION: Answer the user's question specifically regarding the medications listed above if relevant. Keep it concise.
+    `;
+
     try {
-      const response = await getMedicineAlternative(aiQuery);
+      // 3. Send the "Secret" full prompt to the AI
+      const response = await getMedicineAlternative(fullContextPrompt);
       setAiHistory(prev => [...prev, { role: 'bot', text: response }]);
     } catch (err) {
       setAiHistory(prev => [...prev, { role: 'bot', text: "Sorry, I'm having trouble connecting right now." }]);
@@ -80,48 +102,32 @@ export default function Dashboard({ user, userName, householdId, setView }) {
 
   const toggleMedStatus = async (medId, currentStatus, medName) => {
     if (currentStatus || medId === "_") return; 
-
     const updatedMeds = meds.map(m => m.id === medId ? { ...m, taken: true } : m);
     setMeds(updatedMeds);
-
     try {
       const medRef = doc(db, "households", householdId, "medicines", medId);
-      await updateDoc(medRef, { 
-        taken: true, 
-        status: "taken",
-        lastUpdated: serverTimestamp() 
-      });
-
+      await updateDoc(medRef, { taken: true, status: "taken", lastUpdated: serverTimestamp() });
+      
       const inventoryRef = collection(db, "households", householdId, "inventory");
       const q = query(inventoryRef, where("medicineName", "==", medName));
       const querySnapshot = await getDocs(q);
-
       if (!querySnapshot.empty) {
         const stockDoc = querySnapshot.docs[0];
         const stockRef = doc(db, "households", householdId, "inventory", stockDoc.id);
         const currentQty = stockDoc.data().quantity || 0;
-
         if (currentQty > 0) {
-          await updateDoc(stockRef, {
-            quantity: currentQty - 1,
-            lastUpdated: serverTimestamp()
-          });
+          await updateDoc(stockRef, { quantity: currentQty - 1, lastUpdated: serverTimestamp() });
         }
       }
-    } catch (err) { 
-      console.error("Update failed:", err);
-      setMeds(meds); 
-    }
+    } catch (err) { console.error(err); setMeds(meds); }
   };
 
   const handleDelete = async (medId) => {
-    if (window.confirm("Remove this medication from your schedule?")) {
+    if (window.confirm("Remove this medication?")) {
       try {
         await deleteDoc(doc(db, "households", householdId, "medicines", medId));
         setMeds(prev => prev.filter(m => m.id !== medId));
-      } catch (err) { 
-        console.error("Delete failed:", err); 
-      }
+      } catch (err) { console.error(err); }
     }
   };
 
@@ -130,21 +136,22 @@ export default function Dashboard({ user, userName, householdId, setView }) {
   const takenCount = meds.filter(m => m.taken || m.status === "taken").length;
   const totalCount = meds.length;
   const pendingCount = totalCount - takenCount;
+  
+  const nextUpMed = meds.find(m => !m.taken && m.status !== "taken");
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="dashboard-wrapper">
       
       <header className="dash-header">
         <div className="welcome-area">
-          {/* Use the new displayGreeting variable here */}
           <h1>{getGreeting()}, <span className="highlight-name">{displayGreeting}</span> ✨</h1>
           <p>Schedule for <span className="count-tag">{todayName}</span></p>
         </div>
       </header>
 
       <div className="main-grid">
-        {/* Left Panel: Adherence Stats */}
         <aside className="left-panel">
+          
           <motion.div whileHover={{ scale: 1.02 }} className="glass-inner adherence-box">
             <h3 className="panel-title">Daily Adherence</h3>
             <ProgressRing taken={takenCount} total={totalCount} />
@@ -153,9 +160,65 @@ export default function Dashboard({ user, userName, householdId, setView }) {
                <div className="mini-box"><strong>{takenCount}</strong><p>Taken</p></div>
             </div>
           </motion.div>
+
+          {lowStock.length > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-inner"
+              style={{ background: 'rgba(254, 226, 226, 0.95)', border: '1px solid #fecaca' }}
+            >
+              <h4 style={{ margin: '0 0 10px 0', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                ⚠️ Low Stock Warning
+              </h4>
+              <ul style={{ margin: 0, paddingLeft: '20px', color: '#7f1d1d', fontSize: '0.9rem' }}>
+                {lowStock.slice(0, 3).map((item, idx) => (
+                  <li key={idx} style={{ marginBottom: '4px' }}>
+                    <b>{item.medicineName}</b> (Qty: {item.quantity})
+                  </li>
+                ))}
+              </ul>
+              <button 
+                onClick={() => setView("inventory")}
+                style={{ marginTop: '12px', background: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', color: '#b91c1c', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', width: '100%' }}
+              >
+                Refill Inventory
+              </button>
+            </motion.div>
+          )}
+
+           <div className="glass-inner" style={{ padding: '20px' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>⚡ Quick Ask Gemini</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button 
+                  onClick={() => handleAiConsult("What are common side effects of my medications?")}
+                  style={{ textAlign: 'left', padding: '10px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.2)', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}
+                >
+                  💊 Side Effects?
+                </button>
+                <button 
+                  onClick={() => handleAiConsult("Are there any food interactions with my medicines?")}
+                  style={{ textAlign: 'left', padding: '10px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.2)', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}
+                >
+                  🥦 Food Interactions?
+                </button>
+              </div>
+           </div>
+
+           <div className="glass-inner" style={{ padding: '20px' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📞 Emergency Hub</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <button style={{ padding: '12px', borderRadius: '12px', background: '#dcfce7', color: '#166534', border: 'none', fontWeight: '700', cursor: 'pointer' }}>
+                  Doctor
+                </button>
+                <button style={{ padding: '12px', borderRadius: '12px', background: '#fee2e2', color: '#991b1b', border: 'none', fontWeight: '700', cursor: 'pointer' }}>
+                  SOS
+                </button>
+              </div>
+           </div>
+
         </aside>
 
-        {/* Right Panel: Schedule List */}
         <main className="schedule-panel glass-inner">
           <div className="panel-header">
             <h3>Current Schedule</h3>
@@ -163,6 +226,44 @@ export default function Dashboard({ user, userName, householdId, setView }) {
               {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </span>
           </div>
+
+          {nextUpMed ? (
+             <div style={{ 
+               marginBottom: '25px', padding: '20px', borderRadius: '20px', 
+               background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: 'white',
+               boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)', position: 'relative', overflow: 'hidden'
+             }}>
+                <div style={{ position: 'absolute', top: -10, right: -10, width: '80px', height: '80px', background: 'rgba(255,255,255,0.2)', borderRadius: '50%' }}></div>
+                
+                <span style={{ fontSize: '0.8rem', opacity: 0.9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  Up Next
+                </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: '800' }}>{nextUpMed.name}</h2>
+                    <p style={{ margin: '5px 0 0 0', opacity: 0.9, fontSize: '1rem' }}>
+                      {nextUpMed.dosage || "Standard Dose"} • {nextUpMed.time || "Scheduled for Today"}
+                    </p>
+                  </div>
+                  <div style={{ fontSize: '2.5rem', background: 'rgba(255,255,255,0.2)', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                    💊
+                  </div>
+                </div>
+                <button 
+                  onClick={() => toggleMedStatus(nextUpMed.id, false, nextUpMed.name)}
+                  style={{ marginTop: '15px', background: 'white', color: '#2563eb', border: 'none', padding: '10px 20px', borderRadius: '30px', fontWeight: '700', cursor: 'pointer', width: '100%' }}
+                >
+                  Mark as Taken
+                </button>
+             </div>
+          ) : (
+            meds.length > 0 && takenCount === totalCount && (
+              <div style={{ marginBottom: '20px', padding: '20px', borderRadius: '16px', background: '#dcfce7', color: '#166534', textAlign: 'center', border: '1px solid #bbf7d0' }}>
+                <h3 style={{ margin: 0 }}>🎉 All Done!</h3>
+                <p style={{ margin: '5px 0 0 0' }}>You've taken all your meds for today.</p>
+              </div>
+            )
+          )}
           
           <div className="med-grid">
             {meds.length > 0 ? (
@@ -206,12 +307,10 @@ export default function Dashboard({ user, userName, householdId, setView }) {
         </main>
       </div>
 
-      {/* Floating Chat Toggle */}
       <button className="chat-toggle-btn" onClick={() => setIsChatOpen(true)}>
         🤖 Ask Gemini
       </button>
 
-      {/* Slide-out Chat Drawer */}
       <AnimatePresence>
         {isChatOpen && (
           <>
@@ -236,12 +335,7 @@ export default function Dashboard({ user, userName, householdId, setView }) {
               
               <div className="chat-window">
                 {aiHistory.map((msg, i) => (
-                  <motion.div 
-                    key={i} 
-                    initial={{ opacity: 0, y: 10 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    className={`chat-bubble ${msg.role}`}
-                  >
+                  <motion.div key={i} className={`chat-bubble ${msg.role}`}>
                     <ReactMarkdown>{msg.text}</ReactMarkdown>
                   </motion.div>
                 ))}
@@ -255,7 +349,7 @@ export default function Dashboard({ user, userName, householdId, setView }) {
                   onKeyPress={(e) => e.key === 'Enter' && handleAiConsult()}
                   placeholder="Ask about dosage, substitutes..." 
                 />
-                <button onClick={handleAiConsult}>Send</button>
+                <button onClick={() => handleAiConsult()}>Send</button>
               </div>
             </motion.div>
           </>
