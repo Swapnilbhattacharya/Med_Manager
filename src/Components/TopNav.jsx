@@ -25,7 +25,12 @@ export default function TopNav({ setView, currentView, user, userName, familyNam
     }
   };
 
-  // User Initial for Avatar (From Real Name)
+  // CHANGE: Redirect to the new Switch User page instead of logging out
+  const handleSwitchUser = () => {
+    setIsDropdownOpen(false); // Close menu
+    setView("switchUser");    // Change view
+  };
+
   const initial = userName ? userName.charAt(0).toUpperCase() : "U";
 
   return (
@@ -40,30 +45,28 @@ export default function TopNav({ setView, currentView, user, userName, familyNam
         <button className={`nav-btn ${currentView === "calendar" ? "active" : ""}`} onClick={() => setView("calendar")}>📅 Calendar</button>
         <button className={`nav-btn ${currentView === "addMed" ? "active" : ""}`} onClick={() => setView("addMed")}>➕ Add Med</button>
 
-        {/* PROFILE DROPDOWN */}
         <div className="profile-container" ref={dropdownRef}>
-          <div className="profile-btn" onClick={() => setIsDropdownOpen(!isDropdownOpen)} title="Profile">
+          <div className="profile-btn" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
             {initial}
           </div>
 
           {isDropdownOpen && (
             <div className="dropdown-menu">
               <div className="user-info">
-                {/* SHOW REAL NAME */}
                 <h4 className="user-name">{userName || "User"}</h4>
-                {/* SHOW FAMILY NAME */}
                 <span className="household-label">{familyName || "My Family"}</span>
                 
                 {householdId && (
                   <div className="id-box">
                     <span className="id-text">{householdId.substring(0, 8)}...</span>
-                    <span className="copy-icon" onClick={handleCopyId} title="Copy ID">{copySuccess ? "✅" : "📋"}</span>
+                    <span className="copy-icon" onClick={handleCopyId}>{copySuccess ? "✅" : "📋"}</span>
                   </div>
                 )}
               </div>
 
               <div className="menu-actions">
-                <button className="menu-item" onClick={() => { if(window.confirm("Switch user? You will be logged out.")) auth.signOut(); }}>
+                {/* Updated Button Action */}
+                <button className="menu-item" onClick={handleSwitchUser}>
                   🔄 Switch User
                 </button>
                 <button className="menu-item logout" onClick={() => auth.signOut()}>
