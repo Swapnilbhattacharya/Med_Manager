@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { auth, db } from "./services/firebase"; 
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, getDoc } from "firebase/firestore";
+import { ModalProvider } from "./context/ModalContext"; // <--- IMPORT THIS
 
 // Page Imports
 import Login from "./pages/login"; 
@@ -15,7 +16,17 @@ import TopNav from "./Components/TopNav";
 import SwitchUser from "./pages/SwitchUser"; 
 import Settings from "./pages/Settings"; 
 
-export default function App() {
+// Separate the Inner App to use the Context freely if needed, 
+// but wrapping strictly at top level is fine.
+export default function AppWrapper() {
+  return (
+    <ModalProvider>
+      <App />
+    </ModalProvider>
+  );
+}
+
+function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("dashboard");
@@ -23,10 +34,7 @@ export default function App() {
   const [householdId, setHouseholdId] = useState(null);
   const [userName, setUserName] = useState("");
   const [familyName, setFamilyName] = useState("My Family");
-  
-  // NEW: Store the Admin's ID to check roles
   const [adminUid, setAdminUid] = useState(null);
-
   const [monitoringTarget, setMonitoringTarget] = useState(null); 
 
   useEffect(() => {
@@ -48,7 +56,7 @@ export default function App() {
                 if (houseSnap.exists()) {
                   const houseData = houseSnap.data();
                   setFamilyName(houseData.name || "My Family");
-                  setAdminUid(houseData.admin); // Store Admin ID
+                  setAdminUid(houseData.admin);
                 }
               } catch (err) { console.error(err); }
             }
@@ -85,7 +93,7 @@ export default function App() {
         userName={userName}      
         familyName={familyName}  
         householdId={householdId}
-        adminUid={adminUid} // Pass Admin ID to TopNav
+        adminUid={adminUid} 
         setMonitoringTarget={setMonitoringTarget}
         monitoringTarget={monitoringTarget}
       />

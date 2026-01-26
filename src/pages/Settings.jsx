@@ -5,9 +5,12 @@ import {
   doc, getDoc, updateDoc, deleteDoc, arrayRemove, collection, getDocs, writeBatch 
 } from "firebase/firestore";
 import { motion } from "framer-motion";
+import { useModal } from "../context/ModalContext"; 
 import "./Dashboard.css"; 
 
 export default function Settings({ user, householdId, setView }) {
+  const modal = useModal(); 
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [canClaimAdmin, setCanClaimAdmin] = useState(false);
   const [members, setMembers] = useState([]);
@@ -23,26 +26,24 @@ export default function Settings({ user, householdId, setView }) {
         if (houseSnap.exists()) {
           const data = houseSnap.data();
           
-          // 1. Fetch ALL members
+          // Fetch Members
           const usersRef = collection(db, "users");
           const snapshot = await getDocs(usersRef);
           const houseMembers = snapshot.docs
               .map(d => ({ uid: d.id, ...d.data() }))
               .filter(m => m.householdId === householdId);
           
-          // Filter out myself for the display list
+          // Filter out myself for the list UI
           setMembers(houseMembers.filter(m => m.uid !== user.uid));
 
-          // 2. CHECK ADMIN STATUS
+          // Admin Logic
           if (data.admin === user.uid) {
             setIsAdmin(true);
-          } 
-          // 3. SMART CHECK: Is the throne empty?
-          // Condition: Admin field is null OR The current admin ID is not in the member list (Zombie Admin)
-          else {
-            const adminExistsInHouse = houseMembers.some(m => m.uid === data.admin);
-            
-            if (!data.admin || !adminExistsInHouse) {
+          } else {
+            // Check if Admin exists in the house member list
+            const adminExists = houseMembers.some(m => m.uid === data.admin);
+            // If admin field is null OR the admin ID isn't in the member list anymore...
+            if (!data.admin || !adminExists) {
               setCanClaimAdmin(true);
             }
           }
@@ -56,115 +57,124 @@ export default function Settings({ user, householdId, setView }) {
   // --- ACTIONS ---
 
   const handleClaimAdmin = async () => {
-    if (!confirm("The Family Head position is vacant. Do you want to claim it?")) return;
+    // 1. Modal Confirmation
+    const confirmed = await modal.showConfirm("Claim Ownership", "The Family Head position is vacant. Do you want to claim it?");
+    if (!confirmed) return;
     
     try {
-      // RACE CONDITION CHECK: Double check the server before writing
+      // 2. SAFETY CHECK (Restored): Check if someone else claimed it while you were reading
       const houseRef = doc(db, "households", householdId);
       const freshSnap = await getDoc(houseRef);
       const freshData = freshSnap.data();
 
-      // If someone else claimed it just now (and they are a valid member)
       if (freshData.admin && freshData.admin !== user.uid) {
-         // Check if that admin is actually valid
+         // Verify the new admin is valid
          const adminDoc = await getDoc(doc(db, "users", freshData.admin));
          if (adminDoc.exists() && adminDoc.data().householdId === householdId) {
-             alert("❌ Too late! Someone else just claimed the position.");
+             modal.showAlert("Too Late", "❌ Someone else just claimed the position!");
              window.location.reload();
              return;
          }
       }
 
-      // Proceed to Claim
+      // 3. Execute Claim
       await updateDoc(houseRef, { admin: user.uid });
       setIsAdmin(true);
       setCanClaimAdmin(false);
-      alert("👑 Success! You are now the Family Head.");
-      
+      modal.showAlert("Success!", "👑 You are now the Family Head.");
     } catch (err) {
-      console.error(err);
-      alert("Error claiming ownership.");
+      modal.showAlert("Error", "Could not claim ownership.");
     }
   };
 
   const handleLeaveHousehold = async () => {
-    if (!window.confirm("Are you sure you want to leave?")) return;
+    const confirmed = await modal.showConfirm("Leave Family?", "Are you sure you want to leave? You will lose access to the schedule.");
+    if (!confirmed) return;
+
     try {
       const houseRef = doc(db, "households", householdId);
       
-      // If I am the admin, I must abdicate the throne (set admin to null)
+      // ABDICATION LOGIC: If I am admin, I must set admin to null so others can claim it
       if (isAdmin) {
-          await updateDoc(houseRef, { 
-              members: arrayRemove(user.uid),
-              admin: null // Open the spot for someone else
-          });
+          await updateDoc(houseRef, { members: arrayRemove(user.uid), admin: null });
       } else {
           await updateDoc(houseRef, { members: arrayRemove(user.uid) });
       }
 
       await updateDoc(doc(db, "users", user.uid), { householdId: null });
-      alert("You have left the household.");
+      
+      await modal.showAlert("Goodbye", "You have left the household.");
       window.location.reload();
-    } catch (err) { alert("Error leaving household."); }
+    } catch (err) { modal.showAlert("Error", "Could not leave household."); }
   };
 
   const handleDeleteAccount = async () => {
-    if (prompt("Type 'DELETE' to confirm account deletion.") === "DELETE") {
+    const input = await modal.showPrompt(
+      "Delete Account", 
+      "CRITICAL: This will permanently delete your account. Type 'DELETE' to confirm.", 
+      "Type DELETE here..."
+    );
+
+    if (input === "DELETE") {
       try {
         if (householdId) {
-            // Same logic: if Admin leaves, clear the admin field
+            // Logic: If Admin deletes account, abdicate throne
             const updates = { members: arrayRemove(user.uid) };
             if (isAdmin) updates.admin = null;
-            
             await updateDoc(doc(db, "households", householdId), updates);
         }
         await deleteDoc(doc(db, "users", user.uid));
         await deleteUser(auth.currentUser);
-        alert("Account deleted.");
-      } catch (err) { alert("Error deleting account."); }
+        await modal.showAlert("Account Deleted", "Your account has been removed.");
+      } catch (err) { modal.showAlert("Error", "Could not delete account. Login again and try."); }
     }
   };
 
   const handleKickMember = async (memberUid, memberName) => {
-    if (!window.confirm(`Remove ${memberName}?`)) return;
+    const confirmed = await modal.showConfirm("Remove Member", `Are you sure you want to remove ${memberName}?`);
+    if (!confirmed) return;
+
     try {
       await updateDoc(doc(db, "households", householdId), { members: arrayRemove(memberUid) });
       await updateDoc(doc(db, "users", memberUid), { householdId: null });
       setMembers(prev => prev.filter(m => m.uid !== memberUid));
-    } catch (err) { alert("Error removing member."); }
+      modal.showAlert("Removed", `${memberName} has been removed.`);
+    } catch (err) { modal.showAlert("Error", "Failed to remove member."); }
   };
 
   const handleDestroyHousehold = async () => {
-    if (prompt("Type 'DESTROY' to delete household.") === "DESTROY") {
+    const input = await modal.showPrompt(
+      "Destroy Household", 
+      "🚨 DANGER: This will delete ALL data (medicines, inventory, schedule) for EVERYONE. Type 'DESTROY' to confirm.",
+      "Type DESTROY here..."
+    );
+
+    if (input === "DESTROY") {
       try {
         const batch = writeBatch(db);
         const houseRef = doc(db, "households", householdId);
         
-        // Unlink all members
-        // (We re-fetch members roughly or use local state + self)
+        // 1. Unlink all members
         const allMemberIds = [...members.map(m => m.uid), user.uid];
         allMemberIds.forEach(uid => {
             batch.update(doc(db, "users", uid), { householdId: null });
         });
-        
-        // Delete Subcollections (Manual loop required for Firestore)
-        // Note: For a true production app, this should be a Cloud Function.
-        // For client-side, we do best effort.
+
+        // 2. Cascade Delete: Medicines
         const medsSnap = await getDocs(collection(db, "households", householdId, "medicines"));
         medsSnap.forEach(d => batch.delete(d.ref));
         
+        // 3. Cascade Delete: Inventory
         const invSnap = await getDocs(collection(db, "households", householdId, "inventory"));
         invSnap.forEach(d => batch.delete(d.ref));
 
+        // 4. Delete House
         batch.delete(houseRef);
         await batch.commit();
         
-        alert("Household destroyed.");
+        await modal.showAlert("Destroyed", "Household has been deleted.");
         window.location.reload();
-      } catch (err) { 
-        console.error(err);
-        alert("System error. Check console."); 
-      }
+      } catch (err) { modal.showAlert("Error", "System error occurred."); }
     }
   };
 
@@ -178,21 +188,12 @@ export default function Settings({ user, householdId, setView }) {
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ fontSize: '1.1rem', color: '#475569' }}>My Account</h3>
           
-          {/* ORPHAN FIX: CLAIM BUTTON (Visible to ANYONE if admin is missing) */}
+          {/* CLAIM BUTTON (Visible if admin invalid) */}
           {canClaimAdmin && !isAdmin && (
              <div style={{ padding:'15px', background:'#e0f2fe', borderRadius:'10px', marginBottom:'15px', border:'1px solid #bae6fd' }}>
                 <p style={{margin:'0 0 5px 0', color:'#0369a1', fontWeight:'bold'}}>⚠️ No Family Head Assigned</p>
-                <p style={{margin:'0 0 15px 0', fontSize:'0.9rem', color:'#0c4a6e'}}>
-                  This household currently has no administrator.
-                </p>
-                <button 
-                  onClick={handleClaimAdmin} 
-                  style={{
-                    padding:'10px 20px', background:'#0284c7', color:'white', 
-                    border:'none', borderRadius:'8px', fontWeight:'bold', 
-                    cursor:'pointer', boxShadow:'0 4px 6px rgba(2, 132, 199, 0.2)'
-                  }}
-                >
+                <p style={{margin:'0 0 15px 0', fontSize:'0.9rem', color:'#0c4a6e'}}>This household has no administrator.</p>
+                <button onClick={handleClaimAdmin} style={{padding:'10px 20px', background:'#0284c7', color:'white', border:'none', borderRadius:'8px', fontWeight:'bold', cursor:'pointer'}}>
                   👑 Claim Ownership Now
                 </button>
              </div>
@@ -207,7 +208,6 @@ export default function Settings({ user, householdId, setView }) {
         {isAdmin && (
           <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '16px', padding: '25px' }}>
             <h3 style={{ color: '#9a3412', marginTop: 0 }}>👑 Admin Console</h3>
-            
             <div style={{ margin: '20px 0' }}>
               <h4 style={{ fontSize: '0.9rem', color: '#9a3412' }}>MEMBERS</h4>
               {members.length > 0 ? members.map(m => (
@@ -215,11 +215,8 @@ export default function Settings({ user, householdId, setView }) {
                   <span>{m.name}</span>
                   <button onClick={() => handleKickMember(m.uid, m.name)} style={{ color: 'red', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold' }}>Remove</button>
                 </div>
-              )) : (
-                <p style={{ color: '#c2410c', fontStyle:'italic' }}>No other members.</p>
-              )}
+              )) : <p style={{ color: '#c2410c', fontStyle:'italic' }}>No other members.</p>}
             </div>
-
             <button onClick={handleDestroyHousehold} style={{ width: '100%', padding: '15px', borderRadius: '10px', background: '#7f1d1d', color: 'white', border: 'none', fontWeight: '800', cursor: 'pointer' }}>
               💣 DELETE HOUSEHOLD
             </button>
