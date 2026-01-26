@@ -7,33 +7,39 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
-  const [mobile, setMobile] = useState(""); // New State
+  const [mobile, setMobile] = useState(""); 
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 1. Mobile Validation (E.164 format: + followed by 7-15 digits)
-    const mobileRegex = /^\+[1-9]\d{6,14}$/;
-    if (isSignUp && !mobileRegex.test(mobile)) {
-      alert("Please enter a valid mobile number with country code (e.g., +1234567890)");
-      return;
-    }
+    // 1. Validation for exactly 10 digits
+    const tenDigitRegex = /^\d{10}$/;
+    
+    if (isSignUp) {
+      if (!tenDigitRegex.test(mobile)) {
+        alert("Please enter a valid 10-digit mobile number.");
+        return;
+      }
 
-    // 2. Password Confirmation Logic
-    if (isSignUp && password !== confirmPassword) {
-      alert("Passwords do not match!");
-      return;
+      if (password !== confirmPassword) {
+        alert("Passwords do not match!");
+        return;
+      }
     }
 
     try {
       if (isSignUp) {
-        // Pass mobile to your signUpUser service
-        await signUpUser(email, password, name, mobile);
+        // CONVERSION: Convert the string "mobile" to a Number type for the DB
+        const mobileAsNumber = Number(mobile);
+        
+        // Pass the numeric mobile value to your service
+        await signUpUser(email, password, name, mobileAsNumber);
         alert("Account Created Successfully!");
       } else {
         await loginUser(email, password);
       }
+      // Redirect on success
       window.location.href = "/";
     } catch (error) {
       alert(error.message);
@@ -59,12 +65,12 @@ export default function Login() {
                 required
                 style={styles.input}
               />
-              {/* New Mobile Field */}
               <input
                 type="tel"
-                placeholder="Mobile (+91...)"
+                placeholder="10-Digit Mobile Number"
                 value={mobile}
-                onChange={(e) => setMobile(e.target.value)}
+                // Sanitizes input: keeps only numbers and stops at 10 digits
+                onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
                 required
                 style={styles.input}
               />
@@ -119,7 +125,7 @@ export default function Login() {
             setIsSignUp(!isSignUp);
             setConfirmPassword("");
             setPassword("");
-            setMobile(""); // Clear mobile on switch
+            setMobile("");
             setShowPassword(false);
           }}
           style={styles.switchBtn}
@@ -132,7 +138,6 @@ export default function Login() {
 }
 
 const styles = {
-  // ... (keep your existing styles as they are)
   page: { minHeight: "100vh", background: "linear-gradient(135deg, #667eea, #764ba2)", display: "flex", justifyContent: "center", alignItems: "center", fontFamily: "'Segoe UI', Roboto, sans-serif" },
   card: { background: "#ffffff", padding: "35px", borderRadius: "16px", width: "90%", maxWidth: "400px", boxShadow: "0 20px 40px rgba(0,0,0,0.2)", textAlign: "center" },
   title: { marginBottom: "8px", fontSize: "26px", fontWeight: "700", color: "#1a202c" },
