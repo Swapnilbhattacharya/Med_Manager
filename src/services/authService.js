@@ -9,17 +9,19 @@ import { doc, setDoc, updateDoc, arrayUnion } from "firebase/firestore";
 /**
  * 1. SIGN UP
  * Creates an auth account AND a Firestore profile document.
+ * UPDATED: Now accepts and saves the mobile number.
  */
-export const signUpUser = async (email, password, name) => {
+export const signUpUser = async (email, password, name, mobile) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
     // Create User Profile in Firestore
-    // householdId is null initially so the Dashboard knows to show Join/Create options
+    // We add 'mobile' to the object below so it saves to the database
     await setDoc(doc(db, "users", user.uid), {
       name: name,
       email: email,
+      mobile: mobile, // <--- ADDED THIS LINE
       householdId: null, 
       uid: user.uid,
       createdAt: new Date().toISOString()
@@ -59,19 +61,16 @@ export const logoutUser = async () => {
 
 /**
  * 4. JOIN HOUSEHOLD
- * Links an existing user to an existing household.
  */
 export const joinExistingHousehold = async (householdId, userUid) => {
   try {
     const householdRef = doc(db, "households", householdId);
     const userRef = doc(db, "users", userUid);
 
-    // A. Add user UID to the household's members array
     await updateDoc(householdRef, {
       memberIds: arrayUnion(userUid)
     });
 
-    // B. Update the user's profile to store the householdId
     await setDoc(userRef, {
       householdId: householdId
     }, { merge: true });
