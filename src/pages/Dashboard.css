@@ -296,3 +296,36 @@
 .days-row-container { display: flex; gap: 8px; margin-top: 10px; }
 .day-btn { flex: 1; padding: 12px 0; border-radius: 12px; border: 1px solid #e2e8f0; background: white; color: #64748b; font-weight: 700; cursor: pointer; }
 .day-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
+
+/* Add this to Dashboard.css */
+
+.mini-med-card {
+  background: #ffffff;
+  padding: 12px 14px;
+  border-radius: 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 10px rgba(30, 64, 175, 0.05); /* Soft shadow */
+  border: 1px solid #eff6ff;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: transform 0.2s ease;
+}
+
+.mini-med-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(30, 64, 175, 0.1);
+}
+
+.mini-med-card strong {
+  color: #1e3a8a;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.mini-med-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
+}
