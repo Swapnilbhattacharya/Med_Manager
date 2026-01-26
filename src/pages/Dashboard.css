@@ -143,7 +143,7 @@
   border: none;
   padding: 12px 24px;
   border-radius: 30px;
-  fontWeight: 800;
+  font-weight: 800;
   cursor: pointer;
   width: 100%;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
