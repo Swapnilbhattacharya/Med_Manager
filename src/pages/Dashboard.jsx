@@ -379,3 +379,4 @@ export default function Dashboard({ user, userName, householdId, setView, target
     </motion.div>
   );
 }
+
