@@ -1,7 +1,16 @@
 import React, { useState } from "react";
-import { signUpUser, loginUser } from "../services/authService";
+import { 
+  signUpUser, 
+  loginUser, 
+  logoutUser, 
+  sendVerification, 
+  resetPassword 
+} from "../services/authService";
+import { useModal } from "../context/ModalContext"; // Ensure this import path is correct
 
 export default function Login() {
+  const modal = useModal(); // Use your custom modal for alerts
+
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,36 +22,90 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 1. Validation for exactly 10 digits
+    // 1. Mobile Validation (Your Regex)
     const tenDigitRegex = /^\d{10}$/;
     
     if (isSignUp) {
       if (!tenDigitRegex.test(mobile)) {
-        alert("Please enter a valid 10-digit mobile number.");
+        modal.showAlert("Invalid Mobile", "Please enter a valid 10-digit mobile number.");
         return;
       }
 
       if (password !== confirmPassword) {
-        alert("Passwords do not match!");
+        modal.showAlert("Error", "Passwords do not match!");
         return;
       }
-    }
 
-    try {
-      if (isSignUp) {
-        // CONVERSION: Convert the string "mobile" to a Number type for the DB
+      // --- SIGN UP FLOW ---
+      try {
         const mobileAsNumber = Number(mobile);
         
-        // Pass the numeric mobile value to your service
-        await signUpUser(email, password, name, mobileAsNumber);
-        alert("Account Created Successfully!");
-      } else {
-        await loginUser(email, password);
+        // A. Create Account
+        const user = await signUpUser(email, password, name, mobileAsNumber);
+        
+        // B. Send Verification Link
+        await sendVerification(user);
+        
+        // C. Force Logout immediately (Prevent access until verified)
+        await logoutUser();
+
+        // D. Show Success Message
+        await modal.showAlert(
+          "Account Created! 📧", 
+          "We have sent a verification link to your email.\n\nPlease verify your email before logging in."
+        );
+
+        // E. Reset to Login View
+        setIsSignUp(false);
+        setPassword("");
+        setConfirmPassword("");
+
+      } catch (error) {
+        let msg = error.message;
+        if(error.code === 'auth/email-already-in-use') msg = "Email already in use.";
+        modal.showAlert("Signup Failed", msg);
       }
-      // Redirect on success
-      window.location.href = "/";
-    } catch (error) {
-      alert(error.message);
+
+    } else {
+      // --- LOGIN FLOW ---
+      try {
+        // A. Attempt Login
+        const user = await loginUser(email, password);
+
+        // B. Check Verification
+        if (!user.emailVerified) {
+          await logoutUser(); // Kick them out
+          modal.showAlert(
+            "Access Denied 🚫", 
+            "Your email is not verified.\nPlease check your inbox and verify your email to continue."
+          );
+          return;
+        }
+
+        // C. Success - Redirect
+        window.location.href = "/";
+
+      } catch (error) {
+        modal.showAlert("Login Failed", "Invalid email or password.");
+      }
+    }
+  };
+
+  // --- FORGOT PASSWORD ---
+  const handleForgotPassword = async () => {
+    const emailInput = await modal.showPrompt(
+      "Reset Password",
+      "Enter your registered email address.",
+      "name@example.com"
+    );
+
+    if (emailInput) {
+      try {
+        await resetPassword(emailInput);
+        modal.showAlert("Email Sent", "Check your inbox for the password reset link.");
+      } catch (err) {
+        modal.showAlert("Error", "Could not send reset link. Please check the email.");
+      }
     }
   };
 
@@ -69,7 +132,7 @@ export default function Login() {
                 type="tel"
                 placeholder="10-Digit Mobile Number"
                 value={mobile}
-                // Sanitizes input: keeps only numbers and stops at 10 digits
+                // Keeps your sanitization logic
                 onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
                 required
                 style={styles.input}
@@ -103,6 +166,18 @@ export default function Login() {
               )}
             </span>
           </div>
+
+          {!isSignUp && (
+            <div style={{ textAlign: "right", marginTop: "-10px" }}>
+              <button 
+                type="button" 
+                onClick={handleForgotPassword}
+                style={styles.forgotBtn}
+              >
+                Forgot Password?
+              </button>
+            </div>
+          )}
 
           {isSignUp && (
             <input
@@ -148,4 +223,5 @@ const styles = {
   eyeIcon: { position: "absolute", right: "12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
   primaryBtn: { marginTop: "10px", padding: "14px", borderRadius: "10px", border: "none", background: "#667eea", color: "#fff", fontSize: "16px", fontWeight: "600", cursor: "pointer", boxShadow: "0 4px 6px rgba(102, 126, 234, 0.3)" },
   switchBtn: { marginTop: "20px", background: "none", border: "none", color: "#667eea", fontSize: "14px", fontWeight: "500", cursor: "pointer" },
+  forgotBtn: { background: 'none', border: 'none', color: '#667eea', fontSize: '0.85rem', cursor: 'pointer', textDecoration: 'underline' },
 };

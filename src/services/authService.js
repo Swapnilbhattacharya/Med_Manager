@@ -2,29 +2,35 @@ import { auth, db } from "./firebase";
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
-  signOut 
+  signOut,
+  updateProfile,             // NEW: To save name in Auth
+  sendEmailVerification,     // NEW: For verification link
+  sendPasswordResetEmail     // NEW: For forgot password
 } from "firebase/auth";
-import { doc, setDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, setDoc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 
 /**
  * 1. SIGN UP
- * Creates an auth account AND a Firestore profile document.
- * UPDATED: Now accepts and saves the mobile number.
+ * Creates account, updates profile name, sends verification, saves to Firestore.
  */
 export const signUpUser = async (email, password, name, mobile) => {
   try {
+    // A. Create Auth User
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Create User Profile in Firestore
-    // We add 'mobile' to the object below so it saves to the database
+    // B. Update Display Name (Important for Dashboard display)
+    await updateProfile(user, { displayName: name });
+
+    // C. Create User Profile in Firestore
     await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid,
       name: name,
       email: email,
-      mobile: mobile, // <--- ADDED THIS LINE
+      mobile: mobile, // Preserved your mobile logic
       householdId: null, 
-      uid: user.uid,
-      createdAt: new Date().toISOString()
+      createdAt: serverTimestamp(),
+      role: "member"
     }, { merge: true });
 
     return user;
@@ -35,7 +41,14 @@ export const signUpUser = async (email, password, name, mobile) => {
 };
 
 /**
- * 2. LOGIN
+ * 2. SEND VERIFICATION EMAIL
+ */
+export const sendVerification = async (user) => {
+  return sendEmailVerification(user);
+};
+
+/**
+ * 3. LOGIN
  */
 export const loginUser = async (email, password) => {
   try {
@@ -48,7 +61,7 @@ export const loginUser = async (email, password) => {
 };
 
 /**
- * 3. LOGOUT
+ * 4. LOGOUT
  */
 export const logoutUser = async () => {
   try {
@@ -60,7 +73,14 @@ export const logoutUser = async () => {
 };
 
 /**
- * 4. JOIN HOUSEHOLD
+ * 5. RESET PASSWORD
+ */
+export const resetPassword = (email) => {
+  return sendPasswordResetEmail(auth, email);
+};
+
+/**
+ * 6. JOIN HOUSEHOLD (Preserved)
  */
 export const joinExistingHousehold = async (householdId, userUid) => {
   try {
