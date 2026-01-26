@@ -3,7 +3,7 @@ import { auth, db } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, getDoc } from "firebase/firestore";
 import { ModalProvider } from "./context/ModalContext"; // <--- IMPORT THIS
-
+import StockAnalysis from "./pages/StockAnalysis";
 // Page Imports
 import Login from "./pages/login"; 
 import Dashboard from "./pages/Dashboard"; 
@@ -127,7 +127,9 @@ function App() {
         {currentView === "inventory" && <InventoryList householdId={householdId} setView={setView} />}
         {currentView === "addInventory" && <AddInventory householdId={householdId} setView={setView} />}
         {currentView === "switchUser" && <SwitchUser householdId={householdId} setView={setView} currentUser={user} />}
-        
+        {currentView === "StockAnalysis" && (
+        <StockAnalysis householdId={householdId} setView={setView} />
+        )}
         {currentView === "settings" && (
           <Settings user={user} householdId={householdId} setView={setView} />
         )}

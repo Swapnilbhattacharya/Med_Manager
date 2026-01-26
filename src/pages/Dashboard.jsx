@@ -227,9 +227,15 @@ export default function Dashboard({ user, userName, householdId, setView, target
 
       <div className="main-grid">
         <aside className="left-panel">
+          
         <div className="glass-inner" style={{ marginBottom: '0px', padding: '20px' }}>
             <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📊 Stock Health</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', textAlign: 'center' }}>
+            <div 
+  onClick={() => setView("StockAnalysis")} 
+  style={{ cursor: 'pointer' }}
+  title="Click for detailed analysis"
+>
+  { <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', textAlign: 'center' }}>
               <div style={{ background: '#fee2e2', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #ef4444' }}>
                 <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#ef4444' }}>{stockHealth.expired}</span>
                 <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#991b1b', textTransform: 'uppercase' }}>Expired</span>
@@ -242,7 +248,9 @@ export default function Dashboard({ user, userName, householdId, setView, target
                 <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#10b981' }}>{stockHealth.healthy}</span>
                 <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#166534', textTransform: 'uppercase' }}>Healthy</span>
               </div>
-            </div>
+            </div>}
+</div>
+           
           </div>
           <motion.div whileHover={{ scale: 1.02 }} className="glass-inner adherence-box">
             <h3 className="panel-title">{isMonitoring ? "Their Progress" : "Daily Adherence"}</h3>
