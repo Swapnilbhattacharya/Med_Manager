@@ -3,7 +3,7 @@ import { auth, db } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, getDoc } from "firebase/firestore";
 
-// --- COMPONENT IMPORTS (CHECKING ALL) ---
+// Page Imports
 import Login from "./pages/login"; 
 import Dashboard from "./pages/Dashboard"; 
 import Calendar from "./pages/Calendar"; 
@@ -13,7 +13,7 @@ import AddInventory from "./pages/AddInventory";
 import InventoryList from "./Components/InventoryList"; 
 import TopNav from "./Components/TopNav"; 
 import SwitchUser from "./pages/SwitchUser"; 
-import Settings from "./pages/Settings"; // <-- Ensure this file exists!
+import Settings from "./pages/Settings"; 
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -23,8 +23,10 @@ export default function App() {
   const [householdId, setHouseholdId] = useState(null);
   const [userName, setUserName] = useState("");
   const [familyName, setFamilyName] = useState("My Family");
+  
+  // NEW: Store the Admin's ID to check roles
+  const [adminUid, setAdminUid] = useState(null);
 
-  // MONITORING STATE
   const [monitoringTarget, setMonitoringTarget] = useState(null); 
 
   useEffect(() => {
@@ -44,7 +46,9 @@ export default function App() {
               try {
                 const houseSnap = await getDoc(doc(db, "households", hId));
                 if (houseSnap.exists()) {
-                  setFamilyName(houseSnap.data().name || "My Family");
+                  const houseData = houseSnap.data();
+                  setFamilyName(houseData.name || "My Family");
+                  setAdminUid(houseData.admin); // Store Admin ID
                 }
               } catch (err) { console.error(err); }
             }
@@ -68,7 +72,6 @@ export default function App() {
 
   const currentView = !householdId ? "setup" : view;
 
-  // LOGIC: Who is the target?
   const targetUid = monitoringTarget?.uid || user.uid;
   const targetName = monitoringTarget?.name || userName;
 
@@ -82,6 +85,7 @@ export default function App() {
         userName={userName}      
         familyName={familyName}  
         householdId={householdId}
+        adminUid={adminUid} // Pass Admin ID to TopNav
         setMonitoringTarget={setMonitoringTarget}
         monitoringTarget={monitoringTarget}
       />
@@ -108,11 +112,7 @@ export default function App() {
         
         {currentView === "addMed" && (
           <AddMed 
-            householdId={householdId} 
-            setView={setView} 
-            targetUid={targetUid}     
-            targetName={targetName}   
-            user={user} // Pass user object for Admin logic if needed
+            householdId={householdId} setView={setView} targetUid={targetUid} targetName={targetName}   
           />
         )}
         
@@ -120,13 +120,8 @@ export default function App() {
         {currentView === "addInventory" && <AddInventory householdId={householdId} setView={setView} />}
         {currentView === "switchUser" && <SwitchUser householdId={householdId} setView={setView} currentUser={user} />}
         
-        {/* SETTINGS PAGE */}
         {currentView === "settings" && (
-          <Settings 
-            user={user} 
-            householdId={householdId} 
-            setView={setView} 
-          />
+          <Settings user={user} householdId={householdId} setView={setView} />
         )}
       </main>
     </div>

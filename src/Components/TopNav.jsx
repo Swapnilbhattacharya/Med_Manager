@@ -5,7 +5,7 @@ import "./TopNav.css";
 
 export default function TopNav({ 
   setView, currentView, user, userName, familyName, householdId, 
-  setMonitoringTarget, monitoringTarget 
+  setMonitoringTarget, monitoringTarget, adminUid 
 }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isFamilyOpen, setIsFamilyOpen] = useState(false); 
@@ -50,6 +50,11 @@ export default function TopNav({
 
   const initial = userName ? userName.charAt(0).toUpperCase() : "U";
 
+  // Helper to determine label
+  const getRoleLabel = (uid) => {
+    return uid === adminUid ? "Admin" : "Member";
+  };
+
   return (
     <nav className={`top-nav ${monitoringTarget ? 'monitoring-mode' : ''}`}>
       
@@ -59,7 +64,6 @@ export default function TopNav({
 
       <div className="nav-links">
         
-        {/* --- FAMILY MONITOR BUTTON (Always visible to allow exiting mode) --- */}
         <div className="nav-dropdown-container" ref={familyRef}>
           <button 
             className={`nav-btn family-btn ${monitoringTarget ? 'active-monitor' : ''} ${isFamilyOpen ? 'open' : ''}`} 
@@ -77,6 +81,7 @@ export default function TopNav({
               <h4 className="menu-title">Select Member to Monitor</h4>
               
               <div className="family-list">
+                {/* MY DASHBOARD ENTRY */}
                 <button 
                   className={`family-item ${!monitoringTarget ? 'current' : ''}`}
                   onClick={handleStopMonitoring}
@@ -84,23 +89,28 @@ export default function TopNav({
                   <span className="avatar-small">👤</span>
                   <div>
                     <span className="name">My Dashboard</span>
-                    <span className="role">Admin (You)</span>
+                    <span className="role">
+                      {user.uid === adminUid ? "Admin (You)" : "Member (You)"}
+                    </span>
                   </div>
                   {!monitoringTarget && <span className="check">✓</span>}
                 </button>
 
                 <div className="divider"></div>
 
+                {/* FAMILY MEMBERS LIST */}
                 {familyMembers.length > 0 ? familyMembers.map(member => (
                   <button 
                     key={member.uid}
                     className={`family-item ${monitoringTarget?.uid === member.uid ? 'current' : ''}`}
                     onClick={() => handleMonitorSelect(member)}
                   >
-                    <span className="avatar-small">👴</span>
+                    <span className="avatar-small">
+                      {member.uid === adminUid ? "👑" : "👴"}
+                    </span>
                     <div>
                       <span className="name">{member.name}</span>
-                      <span className="role">Dependent</span>
+                      <span className="role">{getRoleLabel(member.uid)}</span>
                     </div>
                     {monitoringTarget?.uid === member.uid && <span className="check">✓</span>}
                   </button>
@@ -119,7 +129,6 @@ export default function TopNav({
         <button className={`nav-btn ${currentView === "calendar" ? "active" : ""}`} onClick={() => setView("calendar")}>📅 Calendar</button>
         <button className={`nav-btn ${currentView === "addMed" ? "active" : ""}`} onClick={() => setView("addMed")}>➕ Add Med</button>
 
-        {/* --- PROFILE DROPDOWN (HIDDEN WHEN MONITORING) --- */}
         {!monitoringTarget && (
           <div className="profile-container" ref={profileRef}>
             <div className="profile-btn" onClick={() => setIsProfileOpen(!isProfileOpen)}>
@@ -141,11 +150,9 @@ export default function TopNav({
                   <button className="menu-item" onClick={() => { setIsProfileOpen(false); setView("switchUser"); }}>
                     🔄 Switch User
                   </button>
-                  
                   <button className="menu-item" onClick={() => { setIsProfileOpen(false); setView("settings"); }}>
                     ⚙️ Settings
                   </button>
-                  
                   <button className="menu-item logout" onClick={() => auth.signOut()}>
                     🚪 Logout
                   </button>
