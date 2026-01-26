@@ -17,7 +17,7 @@ export default function Dashboard({ user, userName, householdId, setView, target
   const [activityLog, setActivityLog] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  
+  const [stockHealth, setStockHealth] = useState({ expired: 0, soon: 0, healthy: 0 });
   // AI State
   const [aiQuery, setAiQuery] = useState("");
   const [aiHistory, setAiHistory] = useState([
@@ -43,35 +43,58 @@ export default function Dashboard({ user, userName, householdId, setView, target
       try {
         // 1. Fetch Schedule for TARGET USER
         const data = await getUserMeds(householdId, targetUid); 
-        const filteredData = (data || []).filter(m => m.day === todayName);
+        // Sort chronologically by time for a better timeline view
+        const filteredData = (data || [])
+          .filter(m => m.day === todayName)
+          .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
         setMeds(filteredData);
 
-        // 2. NEW: Fetch Inventory & Build Stock Map (Summing Batches)
+        // 2. Fetch Inventory & Build Stock Map + Health Stats
         const invRef = collection(db, "households", householdId, "inventory");
         const invSnap = await getDocs(invRef);
         
         const map = {};
         const lowItems = [];
+        
+        // --- STOCK HEALTH INITIALIZATION ---
+        const today = new Date();
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(today.getDate() + 30);
+        let expiredCount = 0;
+        let soonCount = 0;
+        let healthyCount = 0;
 
         invSnap.docs.forEach(doc => {
           const item = doc.data();
           const qty = Number(item.quantity) || 0;
-          // Normalize name to handle case sensitivity
           const normName = (item.medicineName || "").trim().toLowerCase();
           
+          // --- EXPIRY LOGIC ---
+          if (item.expiryDate) {
+            const expiry = new Date(item.expiryDate);
+            if (expiry < today) {
+              expiredCount++;
+            } else if (expiry <= thirtyDaysFromNow) {
+              soonCount++;
+            } else {
+              healthyCount++;
+            }
+          }
+
           if (qty > 0) {
-            // Add to total stock count
             map[normName] = (map[normName] || 0) + qty;
           }
         });
 
         // Generate Low Stock Warnings based on TOTALS
         Object.keys(map).forEach(key => {
-            if (map[key] <= 5) lowItems.push({ name: key, qty: map[key] });
+            if (map[key] <= 5) lowItems.push({ name: key.toUpperCase(), qty: map[key] });
         });
 
         setStockMap(map);
         setLowStock(lowItems);
+        // Update the health summary state
+        setStockHealth({ expired: expiredCount, soon: soonCount, healthy: healthyCount });
 
         // 3. Activity Log (Caregiver Feature)
         const recentActivity = data
@@ -87,7 +110,7 @@ export default function Dashboard({ user, userName, householdId, setView, target
       }
     };
     loadData();
-  }, [householdId, todayName, targetUid]); 
+  }, [householdId, todayName, targetUid]);
 
   // --- SMART INVENTORY CONSUMPTION ---
   const toggleMedStatus = async (medId, currentStatus, medName) => {
@@ -204,7 +227,23 @@ export default function Dashboard({ user, userName, householdId, setView, target
 
       <div className="main-grid">
         <aside className="left-panel">
-          
+        <div className="glass-inner" style={{ marginBottom: '0px', padding: '20px' }}>
+            <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📊 Stock Health</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', textAlign: 'center' }}>
+              <div style={{ background: '#fee2e2', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #ef4444' }}>
+                <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#ef4444' }}>{stockHealth.expired}</span>
+                <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#991b1b', textTransform: 'uppercase' }}>Expired</span>
+              </div>
+              <div style={{ background: '#fef3c7', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #f59e0b' }}>
+                <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#f59e0b' }}>{stockHealth.soon}</span>
+                <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#92400e', textTransform: 'uppercase' }}>Soon</span>
+              </div>
+              <div style={{ background: '#dcfce7', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #10b981' }}>
+                <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#10b981' }}>{stockHealth.healthy}</span>
+                <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#166534', textTransform: 'uppercase' }}>Healthy</span>
+              </div>
+            </div>
+          </div>
           <motion.div whileHover={{ scale: 1.02 }} className="glass-inner adherence-box">
             <h3 className="panel-title">{isMonitoring ? "Their Progress" : "Daily Adherence"}</h3>
             <ProgressRing taken={takenCount} total={totalCount} />
@@ -379,4 +418,3 @@ export default function Dashboard({ user, userName, householdId, setView, target
     </motion.div>
   );
 }
-
