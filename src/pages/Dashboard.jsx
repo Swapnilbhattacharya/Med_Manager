@@ -10,6 +10,25 @@ import { getMedicineAlternative } from "../services/aiService";
 import ProgressRing from "../Components/ProgressRing";
 import "./Dashboard.css";
 
+// --- 🌟 DAILY MOTIVATION BANK 🌟 ---
+const MOTIVATIONAL_QUOTES = [
+  "The greatest wealth is health. 🌿",
+  "Take care of your body. It’s the only place you have to live.",
+  "Health is a relationship between you and your body.",
+  "Small steps every day lead to big results. 🚀",
+  "Your health is an investment, not an expense.",
+  "Consistency is the key to recovery.",
+  "A healthy outside starts from the inside. 🍎",
+  "Don't wish for it, work for it.",
+  "Self-care is how you take your power back.",
+  "Healing takes time, and asking for help is a courageous step.",
+  "Every pill taken is a step towards a better you.",
+  "Wellness is the complete integration of body, mind, and spirit.",
+  "Today is another chance to get stronger.",
+  "Rest when you're weary. Refresh and renew your body.",
+  "Listen to your body, it knows what it needs."
+];
+
 export default function Dashboard({ user, userName, householdId, setView, targetUid, isMonitoring }) {
   const [meds, setMeds] = useState([]); 
   const [stockMap, setStockMap] = useState({}); // Maps "Paracetamol" -> Total Qty across batches
@@ -18,12 +37,16 @@ export default function Dashboard({ user, userName, householdId, setView, target
   const [loading, setLoading] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [stockHealth, setStockHealth] = useState({ expired: 0, soon: 0, healthy: 0 });
+  
   // AI State
   const [aiQuery, setAiQuery] = useState("");
   const [aiHistory, setAiHistory] = useState([
     { role: 'bot', text: "Hello! I know your schedule. Ask me about side effects, interactions, or food advice!" }
   ]);
   const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // 🌟 Quote State
+  const [dailyQuote, setDailyQuote] = useState("");
 
   const displayGreeting = userName || "User";
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -35,6 +58,11 @@ export default function Dashboard({ user, userName, householdId, setView, target
   };
 
   useEffect(() => {
+    // 1. Pick Daily Quote (Based on Day of Month so it rotates daily)
+    const dayOfMonth = new Date().getDate();
+    const quoteIndex = dayOfMonth % MOTIVATIONAL_QUOTES.length;
+    setDailyQuote(MOTIVATIONAL_QUOTES[quoteIndex]);
+
     const loadData = async () => {
       if (!householdId) { 
         setLoading(false); 
@@ -217,11 +245,21 @@ export default function Dashboard({ user, userName, householdId, setView, target
       
       <header className="dash-header">
         <div className="welcome-area">
-          <h1>
-            {isMonitoring ? "👁️ Monitoring" : "Good Morning,"} <span className="highlight-name">{displayGreeting}</span> ✨
+          <h1 style={{ marginBottom: '5px' }}>
+            {isMonitoring ? "👁️ Monitoring" : getGreeting() + ","} <span className="highlight-name">{displayGreeting}</span> ✨
             {isMonitoring && <span style={{display:'block', fontSize:'0.5em', color:'#64748b', marginTop:'5px'}}>ADMIN MODE ACTIVE</span>}
           </h1>
-          <p>Schedule for <span className="count-tag">{todayName}</span></p>
+          
+          {/* 🌟 QUOTE PILL ANIMATION 🌟 */}
+          <motion.div 
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="daily-quote-pill"
+          >
+            💡 {dailyQuote}
+          </motion.div>
+
         </div>
       </header>
 
@@ -236,103 +274,105 @@ export default function Dashboard({ user, userName, householdId, setView, target
                <div className="mini-box"><strong>{takenCount}</strong><p>Taken</p></div>
             </div>
           </motion.div>
+
           <div className="glass-inner" style={{ marginBottom: '0px', padding: '20px', position: 'relative' }}>
-  <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📊 Stock Health</h4>
-  <h6 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>Click on the button for detailed expiry analysis report</h6>
-  
-  {/* PARENT WRAPPER: Handles the whole card hover and routing */}
-  <motion.div 
-    whileHover="active" // Triggers the "active" variant in all children
-    onClick={() => setView("StockAnalysis")} 
-    style={{ cursor: 'pointer', position: 'relative', borderRadius: '16px' }}
-  >
-    {/* 1. THE MAIN CONTENT GRID (Scales slightly on card hover) */}
-    <motion.div 
-      variants={{
-        active: { scale: 1.02 }
-      }}
-      style={{ 
-        display: 'grid', 
-        gridTemplateColumns: '1fr 1fr 1fr', 
-        gap: '8px', 
-        textAlign: 'center',
-        transition: { duration: 0.2 }
-      }}
-    >
-      {/* INDIVIDUAL BUTTON: Expired */}
-      <motion.div 
-        whileHover={{ scale: 1.1, zIndex: 5, boxShadow: '0 8px 15px rgba(239, 68, 68, 0.2)' }}
-        style={{ background: '#fee2e2', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #ef4444' }}
-      >
-        <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#ef4444' }}>{stockHealth.expired}</span>
-        <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#991b1b', textTransform: 'uppercase' }}>Expired</span>
-      </motion.div>
+            <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📊 Stock Health</h4>
+            <h6 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>Click on the button for detailed expiry analysis report</h6>
+            
+            {/* PARENT WRAPPER: Handles the whole card hover and routing */}
+            <motion.div 
+              whileHover="active" // Triggers the "active" variant in all children
+              onClick={() => setView("StockAnalysis")} 
+              style={{ cursor: 'pointer', position: 'relative', borderRadius: '16px' }}
+            >
+              {/* 1. THE MAIN CONTENT GRID (Scales slightly on card hover) */}
+              <motion.div 
+                variants={{
+                  active: { scale: 1.02 }
+                }}
+                style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: '1fr 1fr 1fr', 
+                  gap: '8px', 
+                  textAlign: 'center',
+                  transition: { duration: 0.2 }
+                }}
+              >
+                {/* INDIVIDUAL BUTTON: Expired */}
+                <motion.div 
+                  whileHover={{ scale: 1.1, zIndex: 5, boxShadow: '0 8px 15px rgba(239, 68, 68, 0.2)' }}
+                  style={{ background: '#fee2e2', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #ef4444' }}
+                >
+                  <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#ef4444' }}>{stockHealth.expired}</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#991b1b', textTransform: 'uppercase' }}>Expired</span>
+                </motion.div>
 
-      {/* INDIVIDUAL BUTTON: Soon */}
-      <motion.div 
-        whileHover={{ scale: 1.1, zIndex: 5, boxShadow: '0 8px 15px rgba(245, 158, 11, 0.2)' }}
-        style={{ background: '#fef3c7', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #f59e0b' }}
-      >
-        <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#f59e0b' }}>{stockHealth.soon}</span>
-        <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#92400e', textTransform: 'uppercase' }}>Soon</span>
-      </motion.div>
+                {/* INDIVIDUAL BUTTON: Soon */}
+                <motion.div 
+                  whileHover={{ scale: 1.1, zIndex: 5, boxShadow: '0 8px 15px rgba(245, 158, 11, 0.2)' }}
+                  style={{ background: '#fef3c7', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #f59e0b' }}
+                >
+                  <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#f59e0b' }}>{stockHealth.soon}</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#92400e', textTransform: 'uppercase' }}>Soon</span>
+                </motion.div>
 
-      {/* INDIVIDUAL BUTTON: Healthy */}
-      <motion.div 
-        whileHover={{ scale: 1.1, zIndex: 5, boxShadow: '0 8px 15px rgba(16, 185, 129, 0.2)' }}
-        style={{ background: '#dcfce7', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #10b981' }}
-      >
-        <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#10b981' }}>{stockHealth.healthy}</span>
-        <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#166534', textTransform: 'uppercase' }}>Healthy</span>
-      </motion.div>
-    </motion.div>
+                {/* INDIVIDUAL BUTTON: Healthy */}
+                <motion.div 
+                  whileHover={{ scale: 1.1, zIndex: 5, boxShadow: '0 8px 15px rgba(16, 185, 129, 0.2)' }}
+                  style={{ background: '#dcfce7', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #10b981' }}
+                >
+                  <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#10b981' }}>{stockHealth.healthy}</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#166534', textTransform: 'uppercase' }}>Healthy</span>
+                </motion.div>
+              </motion.div>
 
-    {/* 2. THE POPUP MESSAGE (The beautiful floating alert) */}
-    <motion.div
-      variants={{
-        initial: { opacity: 0, y: 10, scale: 0.9 },
-        active: { opacity: 1, y: -45, scale: 1 } 
-      }}
-      initial="initial"
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        x: '-50%', 
-        background: '#1e293b', // Deep dark contrast
-        color: 'white',
-        padding: '8px 14px',
-        borderRadius: '10px',
-        fontSize: '0.75rem',
-        fontWeight: '700',
-        whiteSpace: 'nowrap',
-        boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
-        zIndex: 10,
-        pointerEvents: 'none', // Critical: lets you hover buttons "through" the message
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px'
-      }}
-    >
-      <span>Click here for detailed expiry report</span>
-      <span style={{ fontSize: '1rem' }}>📋</span>
-      
-      {/* Tooltip Tail */}
-      <div style={{
-        position: 'absolute',
-        bottom: '-5px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: 0, height: 0,
-        borderLeft: '6px solid transparent',
-        borderRight: '6px solid transparent',
-        borderTop: '6px solid #1e293b'
-      }} />
-    </motion.div>
+              {/* 2. THE POPUP MESSAGE (The beautiful floating alert) */}
+              <motion.div
+                variants={{
+                  initial: { opacity: 0, y: 10, scale: 0.9 },
+                  active: { opacity: 1, y: -45, scale: 1 } 
+                }}
+                initial="initial"
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  x: '-50%', 
+                  background: '#1e293b', // Deep dark contrast
+                  color: 'white',
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  fontSize: '0.75rem',
+                  fontWeight: '700',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
+                  zIndex: 10,
+                  pointerEvents: 'none', // Critical: lets you hover buttons "through" the message
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span>Click here for detailed expiry report</span>
+                <span style={{ fontSize: '1rem' }}>📋</span>
+                
+                {/* Tooltip Tail */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-5px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: 0, height: 0,
+                  borderLeft: '6px solid transparent',
+                  borderRight: '6px solid transparent',
+                  borderTop: '6px solid #1e293b'
+                }} />
+              </motion.div>
 
-  </motion.div>
-</div>
+            </motion.div>
+          </div>
+
           {isMonitoring ? (
             <div className="glass-inner" style={{ padding: '20px' }}>
               <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📋 Activity Log</h4>
