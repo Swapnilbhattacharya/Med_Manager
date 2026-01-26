@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { auth, db } from "./services/firebase"; 
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, getDoc } from "firebase/firestore";
-import { ModalProvider } from "./context/ModalContext"; // <--- IMPORT THIS
-import StockAnalysis from "./pages/StockAnalysis";
+import { ModalProvider } from "./context/ModalContext"; 
+
 // Page Imports
 import Login from "./pages/login"; 
 import Dashboard from "./pages/Dashboard"; 
@@ -15,9 +15,8 @@ import InventoryList from "./Components/InventoryList";
 import TopNav from "./Components/TopNav"; 
 import SwitchUser from "./pages/SwitchUser"; 
 import Settings from "./pages/Settings"; 
+import StockAnalysis from "./pages/StockAnalysis";
 
-// Separate the Inner App to use the Context freely if needed, 
-// but wrapping strictly at top level is fine.
 export default function AppWrapper() {
   return (
     <ModalProvider>
@@ -78,6 +77,7 @@ function App() {
   if (loading) return <div className="loading-screen"><h2>💊 Syncing...</h2></div>;
   if (!user) return <Login />;
 
+  // LOGIC: If no householdId, force "setup" view
   const currentView = !householdId ? "setup" : view;
 
   const targetUid = monitoringTarget?.uid || user.uid;
@@ -86,17 +86,20 @@ function App() {
   return (
     <div className="app-main-layout" style={{ minHeight: "100vh", background: "#f8fbff" }}>
       
-      <TopNav 
-        setView={setView} 
-        currentView={currentView} 
-        user={user} 
-        userName={userName}      
-        familyName={familyName}  
-        householdId={householdId}
-        adminUid={adminUid} 
-        setMonitoringTarget={setMonitoringTarget}
-        monitoringTarget={monitoringTarget}
-      />
+      {/* 🛑 HIDE TOPNAV IF IN SETUP MODE */}
+      {currentView !== "setup" && (
+        <TopNav 
+          setView={setView} 
+          currentView={currentView} 
+          user={user} 
+          userName={userName}      
+          familyName={familyName}  
+          householdId={householdId}
+          adminUid={adminUid} 
+          setMonitoringTarget={setMonitoringTarget}
+          monitoringTarget={monitoringTarget}
+        />
+      )}
 
       {monitoringTarget && (
         <div style={{ background: '#fef3c7', color: '#92400e', textAlign: 'center', padding: '8px', fontSize: '0.9rem', fontWeight: 'bold', borderBottom: '1px solid #fcd34d' }}>
@@ -127,9 +130,11 @@ function App() {
         {currentView === "inventory" && <InventoryList householdId={householdId} setView={setView} />}
         {currentView === "addInventory" && <AddInventory householdId={householdId} setView={setView} />}
         {currentView === "switchUser" && <SwitchUser householdId={householdId} setView={setView} currentUser={user} />}
+        
         {currentView === "StockAnalysis" && (
-        <StockAnalysis householdId={householdId} setView={setView} />
+          <StockAnalysis householdId={householdId} setView={setView} />
         )}
+        
         {currentView === "settings" && (
           <Settings user={user} householdId={householdId} setView={setView} />
         )}

@@ -3,11 +3,11 @@ import { db, auth } from "../services/firebase";
 import { doc, updateDoc, getDoc, addDoc, collection, deleteDoc } from "firebase/firestore"; 
 import { deleteUser } from "firebase/auth"; 
 import { motion } from "framer-motion";
-import { useModal } from "../context/ModalContext"; // <--- NEW IMPORT
+import { useModal } from "../context/ModalContext"; 
 import "./Dashboard.css"; 
 
 export default function Join({ user, setView }) {
-  const modal = useModal(); // <--- ACTIVATE MODAL
+  const modal = useModal(); 
   const [activeTab, setActiveTab] = useState("create");
   const [familyName, setFamilyName] = useState("");
   const [householdIdInput, setHouseholdIdInput] = useState("");
@@ -71,7 +71,7 @@ export default function Join({ user, setView }) {
   };
 
   return (
-    <div className="dashboard-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+    <div className="dashboard-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '90vh' }}>
       <div className="professional-form-card" style={{ width: '100%', maxWidth: '500px' }}>
         
         <h2 style={{ textAlign: 'center', color: '#1e3a8a', marginBottom: '10px' }}>Welcome! 👋</h2>
@@ -89,27 +89,64 @@ export default function Join({ user, setView }) {
           <button className={`day-btn ${activeTab === "join" ? "active" : ""}`} onClick={() => setActiveTab("join")}>Join Existing</button>
         </div>
 
-        {activeTab === "create" ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <label className="input-label">Family Name</label>
-            <input className="pro-input" placeholder="e.g. The Smith Family" value={familyName} onChange={(e) => setFamilyName(e.target.value)} />
-            <button className="btn-add-main" style={{ width: '100%', marginTop: '20px', justifyContent: 'center' }} onClick={createHousehold} disabled={loading}>
-              {loading ? "Creating..." : "✨ Create Household"}
-            </button>
-          </motion.div>
-        ) : (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <label className="input-label">Household ID</label>
-            <input className="pro-input" placeholder="Paste ID here..." value={householdIdInput} onChange={(e) => setHouseholdIdInput(e.target.value)} />
-            <button className="btn-add-main" style={{ width: '100%', marginTop: '20px', justifyContent: 'center', background: '#10b981' }} onClick={joinHousehold} disabled={loading}>
-              {loading ? "Joining..." : "🚀 Join Household"}
-            </button>
-          </motion.div>
-        )}
+        {/* DYNAMIC CONTENT AREA */}
+        <div style={{ minHeight: '180px' }}>
+          {activeTab === "create" ? (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <label className="input-label">Family Name</label>
+              <input className="pro-input" placeholder="e.g. The Smith Family" value={familyName} onChange={(e) => setFamilyName(e.target.value)} />
+              <button className="btn-add-main" style={{ width: '100%', marginTop: '20px', justifyContent: 'center' }} onClick={createHousehold} disabled={loading}>
+                {loading ? "Creating..." : "✨ Create Household"}
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <label className="input-label">Household ID</label>
+              <input className="pro-input" placeholder="Paste ID here..." value={householdIdInput} onChange={(e) => setHouseholdIdInput(e.target.value)} />
+              <button className="btn-add-main" style={{ width: '100%', marginTop: '20px', justifyContent: 'center', background: '#10b981' }} onClick={joinHousehold} disabled={loading}>
+                {loading ? "Joining..." : "🚀 Join Household"}
+              </button>
+            </motion.div>
+          )}
+        </div>
 
-        <div style={{ marginTop: '30px', borderTop: '1px solid #e2e8f0', paddingTop: '15px', textAlign: 'center' }}>
-          <button onClick={handleDeleteAccount} disabled={loading} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.85rem', cursor: 'pointer', textDecoration: 'underline' }}>
-            I want to delete my account
+        {/* --- LOGOUT & DELETE SECTION (Always Visible at Bottom) --- */}
+        <div style={{ marginTop: '30px', borderTop: '2px solid #f1f5f9', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          
+          <button 
+            onClick={() => auth.signOut()} 
+            style={{ 
+              width: '100%',
+              padding: '12px', 
+              borderRadius: '12px', 
+              border: '2px solid #fee2e2', 
+              background: '#fef2f2', 
+              color: '#dc2626', 
+              fontWeight: '700', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            🚪 Logout / Switch Account
+          </button>
+
+          <button 
+            onClick={handleDeleteAccount} 
+            disabled={loading} 
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              color: '#94a3b8', 
+              fontSize: '0.85rem', 
+              cursor: 'pointer', 
+              textDecoration: 'underline',
+              textAlign: 'center'
+            }}
+          >
+            Permanently delete my account
           </button>
         </div>
 
