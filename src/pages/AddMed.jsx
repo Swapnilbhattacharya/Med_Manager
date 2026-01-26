@@ -7,13 +7,12 @@ import "./Dashboard.css";
 export default function AddMed({ householdId, setView, targetUid, targetName }) {
   const [medName, setMedName] = useState("");
   const [dosage, setDosage] = useState("");
-  const [timeSlots, setTimeSlots] = useState([""]); // Array for multiple times
+  const [timeSlots, setTimeSlots] = useState([""]);
   const [selectedDays, setSelectedDays] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-  // --- DAY SELECTION LOGIC ---
   const toggleDay = (day) => {
     setSelectedDays(prev => 
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
@@ -28,7 +27,6 @@ export default function AddMed({ householdId, setView, targetUid, targetName }) 
     }
   };
 
-  // --- TIME SLOT LOGIC ---
   const addTimeSlot = () => setTimeSlots([...timeSlots, ""]);
   const updateTimeSlot = (index, value) => {
     const newSlots = [...timeSlots];
@@ -44,13 +42,16 @@ export default function AddMed({ householdId, setView, targetUid, targetName }) 
   const handleAdd = async (e) => {
     e.preventDefault();
     
-    // 1. Validations
     if (!medName || selectedDays.length === 0 || timeSlots.some(t => !t)) {
       alert("Please fill in all required fields and select at least one day.");
       return;
     }
 
     const dosageNum = parseInt(dosage);
+    if (isNaN(dosageNum) || dosageNum <= 0) {
+      alert("Please enter a valid dosage amount.");
+      return;
+    }
     if (dosageNum > 1000) {
       alert("Safety limit exceeded: Dosage cannot be more than 1000mg.");
       return;
@@ -62,14 +63,13 @@ export default function AddMed({ householdId, setView, targetUid, targetName }) 
     try {
       const medsRef = collection(db, "households", householdId, "medicines");
       
-      // We create a promise for every Day x every Time Slot
       const savePromises = [];
       selectedDays.forEach(day => {
         timeSlots.forEach(time => {
           savePromises.push(
             addDoc(medsRef, {
               name: cleanMedName,
-              dosage: dosage.toLowerCase().includes("mg") ? dosage : `${dosage}mg`,
+              dosage: dosageNum, // Store as NUMBER to match inventory
               time: time,
               day: day,
               taken: false,
@@ -84,16 +84,22 @@ export default function AddMed({ householdId, setView, targetUid, targetName }) 
 
       await Promise.all(savePromises);
 
-      // Inventory Check
+      // --- UPDATED INVENTORY CHECK ---
       const invRef = collection(db, "households", householdId, "inventory");
-      const q = query(invRef, where("medicineName", "==", cleanMedName)); 
+      // Query filters by BOTH name and the specific dosage
+      const q = query(
+        invRef, 
+        where("medicineName", "==", cleanMedName),
+        where("dosage", "==", dosageNum)
+      ); 
+      
       const snap = await getDocs(q);
       
       let totalStock = 0;
       snap.docs.forEach(d => { totalStock += Number(d.data().quantity || 0); });
 
       if (snap.empty || totalStock <= 0) {
-        alert(`Schedule Created! 📅\nNote: ${cleanMedName} is not in stock. Update your inventory to log doses.`);
+        alert(`Schedule Created! 📅\nNote: ${cleanMedName} (${dosageNum}mg) is not in stock. Update your inventory to log doses.`);
       }
 
       setView("dashboard"); 
@@ -121,7 +127,7 @@ export default function AddMed({ householdId, setView, targetUid, targetName }) 
               className="pro-input" 
               value={medName} 
               onChange={(e) => setMedName(e.target.value.toUpperCase())} 
-              placeholder="e.g. PARACETAMOL" 
+              placeholder="e.g. DOLO" 
               required
             />
           </div>
@@ -134,7 +140,7 @@ export default function AddMed({ householdId, setView, targetUid, targetName }) 
                 type="number"
                 value={dosage} 
                 onChange={(e) => setDosage(e.target.value)} 
-                placeholder="e.g. 500" 
+                placeholder="500" 
                 required
               />
             </div>
@@ -161,6 +167,7 @@ export default function AddMed({ householdId, setView, targetUid, targetName }) 
             </div>
           </div>
           
+          {/* ... (Rest of UI for Repeat Days and Buttons remains exactly the same) ... */}
           <div className="input-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <label className="input-label" style={{ marginBottom: 0 }}>Repeat Days *</label>

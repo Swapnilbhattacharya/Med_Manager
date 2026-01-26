@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../services/firebase';
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
-
-// Ensure this imports the CSS file where your professional classes are defined
 import "./Dashboard.css"; 
 
 const AddInventory = ({ householdId, setView }) => {
@@ -12,13 +10,13 @@ const AddInventory = ({ householdId, setView }) => {
     batchNumber: '',
     medicineName: '',
     quantity: '',
+    dosage: '', // Added Dosage State
     expiryDate: ''
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
 
-  // Auto-hide toast after 3 seconds
   useEffect(() => {
     if (showToast) {
       const timer = setTimeout(() => setShowToast(false), 3000);
@@ -31,24 +29,31 @@ const AddInventory = ({ householdId, setView }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // 1. GTIN Validation (Strictly Numeric)
+    // 1. GTIN Validation
     if (!/^\d+$/.test(formData.gtin.trim())) {
       alert("GTIN must contain only numbers.");
       return;
     }
 
-    // 2. Quantity Constraint (1 to 10,000)
+    // 2. Quantity Constraint
     const qty = parseInt(formData.quantity);
     if (isNaN(qty) || qty < 1) {
       alert("Please enter a valid quantity.");
       return;
     }
-    if (qty > 10000) {
-      alert("Quantity cannot exceed 10,000 units per entry.");
+
+    // 3. Dosage Constraint (Max 1000mg)
+    const dose = parseInt(formData.dosage);
+    if (isNaN(dose) || dose < 1) {
+      alert("Please enter a valid dosage.");
+      return;
+    }
+    if (dose > 1000) {
+      alert("Dosage cannot exceed 1000mg per entry.");
       return;
     }
 
-    // 3. Expiry Date Validation (Prevents past dates)
+    // 4. Expiry Date Validation
     if (formData.expiryDate && formData.expiryDate < today) {
       alert("The expiry date cannot be in the past.");
       return;
@@ -56,12 +61,11 @@ const AddInventory = ({ householdId, setView }) => {
 
     setIsSubmitting(true);
     
-    // Clean Data: Batch and Medicine Name to UPPERCASE
     const cleanBatch = formData.batchNumber.trim().toUpperCase();
-    const cleanMedName = formData.medicineName.trim().toUpperCase(); // Changed to UPPERCASE
+    const cleanMedName = formData.medicineName.trim().toUpperCase();
     
-    // Unique ID based on GTIN + Batch Number
-    const docId = `${formData.gtin.trim()}_${cleanBatch}`;
+    // UPDATE: Include dose in the ID so 500mg and 650mg are different documents
+    const docId = `${formData.gtin.trim()}_${dose}_${cleanBatch}`;
     
     try {
       const inventoryRef = doc(db, "households", householdId, "inventory", docId);
@@ -72,11 +76,13 @@ const AddInventory = ({ householdId, setView }) => {
         medicineName: cleanMedName,
         batchNumber: cleanBatch,
         quantity: qty,
+        dosage: dose, 
         lastUpdated: serverTimestamp()
       }, { merge: true });
+    
+ 
       
       setShowToast(true);
-      // Brief delay so the user sees the success toast
       setTimeout(() => setView("inventory"), 1500); 
     } catch (err) {
       console.error("Firestore Error:", err);
@@ -87,17 +93,11 @@ const AddInventory = ({ householdId, setView }) => {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }} 
-      animate={{ opacity: 1, y: 0 }} 
-      className="dashboard-wrapper"
-    >
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="dashboard-wrapper">
       <AnimatePresence>
         {showToast && (
           <motion.div 
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 20 }}
-            exit={{ opacity: 0, y: -50 }}
+            initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 20 }} exit={{ opacity: 0, y: -50 }}
             className="success-toast"
             style={{
               position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)',
@@ -139,7 +139,6 @@ const AddInventory = ({ householdId, setView }) => {
               }}
               required
             />
-            <small style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Only numbers allowed.</small>
           </div>
 
           <div style={{ marginBottom: '20px' }}>
@@ -149,9 +148,8 @@ const AddInventory = ({ householdId, setView }) => {
               placeholder="e.g. PARACETAMOL" 
               value={formData.medicineName}
               onChange={(e) => setFormData({...formData, medicineName: e.target.value.toUpperCase()})}
-              required // Now a required field
+              required
             />
-            <small style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Saved in UPPERCASE for consistency.</small>
           </div>
 
           <div className="days-row-container" style={{ marginBottom: '20px', display: 'flex', gap: '15px' }}>
@@ -159,39 +157,52 @@ const AddInventory = ({ householdId, setView }) => {
               <label className="input-label">Batch Number *</label>
               <input 
                 className="pro-input" 
-                placeholder="e.g. LOT123" 
+                placeholder="LOT123" 
                 value={formData.batchNumber}
                 onChange={(e) => setFormData({...formData, batchNumber: e.target.value.toUpperCase()})}
                 required
               />
-              <small style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Found near expiry date.</small>
             </div>
 
+            {/* NEW DOSAGE FIELD */}
             <div style={{ flex: 1 }}>
+              <label className="input-label">Dosage (mg) *</label>
+              <input 
+                className="pro-input" 
+                type="number" 
+                placeholder="500"
+                value={formData.dosage}
+                onChange={(e) => setFormData({...formData, dosage: e.target.value})}
+                required
+              />
+              <small style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Max 1000mg.</small>
+            </div>
+          </div>
+
+          <div className="days-row-container" style={{ marginBottom: '30px', display: 'flex', gap: '15px' }}>
+             <div style={{ flex: 1 }}>
               <label className="input-label">Quantity *</label>
               <input 
                 className="pro-input" 
                 type="number" 
-                max="10000"
                 placeholder="0"
                 value={formData.quantity}
                 onChange={(e) => setFormData({...formData, quantity: e.target.value})}
                 required
               />
-              <small style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Max 10,000.</small>
             </div>
-          </div>
-
-          <div style={{ marginBottom: '30px' }}>
-            <label className="input-label">Expiry Date *</label>
-            <input 
-              className="pro-input" 
-              type="date" 
-              min={today}
-              value={formData.expiryDate}
-              onChange={(e) => setFormData({...formData, expiryDate: e.target.value})} 
-              required
-            />
+            
+            <div style={{ flex: 1 }}>
+              <label className="input-label">Expiry Date *</label>
+              <input 
+                className="pro-input" 
+                type="date" 
+                min={today}
+                value={formData.expiryDate}
+                onChange={(e) => setFormData({...formData, expiryDate: e.target.value})} 
+                required
+              />
+            </div>
           </div>
 
           <button 

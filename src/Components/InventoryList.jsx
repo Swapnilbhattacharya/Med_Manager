@@ -63,7 +63,13 @@ export default function InventoryList({ householdId, setView }) {
               className="glass-inner inventory-item-card"
             >
               <div className="inv-card-header">
-                <h3>{item.medicineName || "Unknown Item"}</h3>
+                <div>
+                  <h3>{item.medicineName || "Unknown Item"}</h3>
+                  {/* Added Dosage here using existing style logic */}
+                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                    {item.dosage} mg
+                  </span>
+                </div>
                 <span className={`qty-badge ${item.quantity < 5 ? 'low-stock' : 'good-stock'}`}>
                   Qty: {item.quantity}
                 </span>
