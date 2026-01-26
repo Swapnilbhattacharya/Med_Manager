@@ -227,31 +227,7 @@ export default function Dashboard({ user, userName, householdId, setView, target
 
       <div className="main-grid">
         <aside className="left-panel">
-          
-        <div className="glass-inner" style={{ marginBottom: '0px', padding: '20px' }}>
-            <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📊 Stock Health</h4>
-            <div 
-  onClick={() => setView("StockAnalysis")} 
-  style={{ cursor: 'pointer' }}
-  title="Click for detailed analysis"
->
-  { <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', textAlign: 'center' }}>
-              <div style={{ background: '#fee2e2', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #ef4444' }}>
-                <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#ef4444' }}>{stockHealth.expired}</span>
-                <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#991b1b', textTransform: 'uppercase' }}>Expired</span>
-              </div>
-              <div style={{ background: '#fef3c7', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #f59e0b' }}>
-                <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#f59e0b' }}>{stockHealth.soon}</span>
-                <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#92400e', textTransform: 'uppercase' }}>Soon</span>
-              </div>
-              <div style={{ background: '#dcfce7', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #10b981' }}>
-                <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#10b981' }}>{stockHealth.healthy}</span>
-                <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#166534', textTransform: 'uppercase' }}>Healthy</span>
-              </div>
-            </div>}
-</div>
-           
-          </div>
+
           <motion.div whileHover={{ scale: 1.02 }} className="glass-inner adherence-box">
             <h3 className="panel-title">{isMonitoring ? "Their Progress" : "Daily Adherence"}</h3>
             <ProgressRing taken={takenCount} total={totalCount} />
@@ -260,7 +236,103 @@ export default function Dashboard({ user, userName, householdId, setView, target
                <div className="mini-box"><strong>{takenCount}</strong><p>Taken</p></div>
             </div>
           </motion.div>
+          <div className="glass-inner" style={{ marginBottom: '0px', padding: '20px', position: 'relative' }}>
+  <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📊 Stock Health</h4>
+  <h6 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>Click on the button for detailed expiry analysis report</h6>
+  
+  {/* PARENT WRAPPER: Handles the whole card hover and routing */}
+  <motion.div 
+    whileHover="active" // Triggers the "active" variant in all children
+    onClick={() => setView("StockAnalysis")} 
+    style={{ cursor: 'pointer', position: 'relative', borderRadius: '16px' }}
+  >
+    {/* 1. THE MAIN CONTENT GRID (Scales slightly on card hover) */}
+    <motion.div 
+      variants={{
+        active: { scale: 1.02 }
+      }}
+      style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '1fr 1fr 1fr', 
+        gap: '8px', 
+        textAlign: 'center',
+        transition: { duration: 0.2 }
+      }}
+    >
+      {/* INDIVIDUAL BUTTON: Expired */}
+      <motion.div 
+        whileHover={{ scale: 1.1, zIndex: 5, boxShadow: '0 8px 15px rgba(239, 68, 68, 0.2)' }}
+        style={{ background: '#fee2e2', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #ef4444' }}
+      >
+        <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#ef4444' }}>{stockHealth.expired}</span>
+        <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#991b1b', textTransform: 'uppercase' }}>Expired</span>
+      </motion.div>
 
+      {/* INDIVIDUAL BUTTON: Soon */}
+      <motion.div 
+        whileHover={{ scale: 1.1, zIndex: 5, boxShadow: '0 8px 15px rgba(245, 158, 11, 0.2)' }}
+        style={{ background: '#fef3c7', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #f59e0b' }}
+      >
+        <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#f59e0b' }}>{stockHealth.soon}</span>
+        <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#92400e', textTransform: 'uppercase' }}>Soon</span>
+      </motion.div>
+
+      {/* INDIVIDUAL BUTTON: Healthy */}
+      <motion.div 
+        whileHover={{ scale: 1.1, zIndex: 5, boxShadow: '0 8px 15px rgba(16, 185, 129, 0.2)' }}
+        style={{ background: '#dcfce7', padding: '10px 5px', borderRadius: '12px', borderBottom: '3px solid #10b981' }}
+      >
+        <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: '800', color: '#10b981' }}>{stockHealth.healthy}</span>
+        <span style={{ fontSize: '0.6rem', fontWeight: '700', color: '#166534', textTransform: 'uppercase' }}>Healthy</span>
+      </motion.div>
+    </motion.div>
+
+    {/* 2. THE POPUP MESSAGE (The beautiful floating alert) */}
+    <motion.div
+      variants={{
+        initial: { opacity: 0, y: 10, scale: 0.9 },
+        active: { opacity: 1, y: -45, scale: 1 } 
+      }}
+      initial="initial"
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        x: '-50%', 
+        background: '#1e293b', // Deep dark contrast
+        color: 'white',
+        padding: '8px 14px',
+        borderRadius: '10px',
+        fontSize: '0.75rem',
+        fontWeight: '700',
+        whiteSpace: 'nowrap',
+        boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
+        zIndex: 10,
+        pointerEvents: 'none', // Critical: lets you hover buttons "through" the message
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px'
+      }}
+    >
+      <span>Click here for detailed expiry report</span>
+      <span style={{ fontSize: '1rem' }}>📋</span>
+      
+      {/* Tooltip Tail */}
+      <div style={{
+        position: 'absolute',
+        bottom: '-5px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 0, height: 0,
+        borderLeft: '6px solid transparent',
+        borderRight: '6px solid transparent',
+        borderTop: '6px solid #1e293b'
+      }} />
+    </motion.div>
+
+  </motion.div>
+</div>
           {isMonitoring ? (
             <div className="glass-inner" style={{ padding: '20px' }}>
               <h4 style={{ margin: '0 0 15px 0', color: '#1e3a8a' }}>📋 Activity Log</h4>
@@ -309,7 +381,7 @@ export default function Dashboard({ user, userName, householdId, setView, target
               </div>
             </>
           )}
-
+       
         </aside>
 
         <main className="schedule-panel glass-inner">
