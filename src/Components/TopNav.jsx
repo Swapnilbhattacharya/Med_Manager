@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { auth, db } from "../services/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore"; // CHANGED: Imported onSnapshot
 import "./TopNav.css";
 
 export default function TopNav({ 
@@ -17,27 +17,48 @@ export default function TopNav({
   const profileRef = useRef(null);
   const familyRef = useRef(null);
 
+  // --- REAL-TIME FAMILY LISTENER ---
   useEffect(() => {
-    const fetchFamily = async () => {
-      if (householdId) {
-        try {
-          const q = query(collection(db, "users"), where("householdId", "==", householdId));
-          const snap = await getDocs(q);
-          const members = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    let unsubscribe;
+
+    if (householdId) {
+      try {
+        const q = query(collection(db, "users"), where("householdId", "==", householdId));
+        
+        // FIX: Use onSnapshot instead of getDocs for real-time updates
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          const members = snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
+          
           // Filter out myself
-          setFamilyMembers(members.filter(m => m.uid !== user.uid));
-        } catch(e) { console.error("Nav fetch error", e); }
-      }
-    };
-    fetchFamily();
+          const others = members.filter(m => m.uid !== user.uid);
+          setFamilyMembers(others);
+
+          // SAFETY CHECK: If we are currently watching someone who just got removed
+          if (monitoringTarget) {
+            const targetStillExists = others.find(m => m.uid === monitoringTarget.uid);
+            if (!targetStillExists) {
+              setMonitoringTarget(null); // Kick out of monitoring mode
+              setView("dashboard");      // Return to main dashboard
+              alert("User has been removed from the household.");
+            }
+          }
+        });
+
+      } catch(e) { console.error("Nav fetch error", e); }
+    }
 
     function handleClickOutside(event) {
       if (profileRef.current && !profileRef.current.contains(event.target)) setIsProfileOpen(false);
       if (familyRef.current && !familyRef.current.contains(event.target)) setIsFamilyOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [householdId, user.uid]);
+
+    // Cleanup listener on unmount
+    return () => {
+      if (unsubscribe) unsubscribe();
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [householdId, user.uid, monitoringTarget]); // Added monitoringTarget to dependencies for safety check
 
   // --- ACTIONS ---
   
