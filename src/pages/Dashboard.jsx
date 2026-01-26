@@ -130,44 +130,66 @@ export default function Dashboard({ user, userName, householdId, setView, target
   // --- ACTIONS ---
   const toggleMedStatus = async (medId, currentStatus, medName) => {
     if (medId === "_") return;
-
+  
+    // 1. Get the specific dosage from the med object (ensure it's a number)
+    const targetMed = meds.find(m => m.id === medId);
+    const dosageNum = Number(targetMed?.dosage);
     const normName = (medName || "").trim().toLowerCase();
+    
+    // Note: Your stockMap key logic might need refinement if you want 
+    // the UI to show stock per dosage, but for the DB update:
     const currentStock = stockMap[normName] || 0;
-
+  
     if (!currentStatus && currentStock <= 0) {
-        alert(`❌ Out of Stock! "${medName}" is not available in the inventory.`);
+        alert(`❌ Out of Stock! "${medName}" is not available.`);
         return;
     }
 
     const updatedMeds = meds.map(m => m.id === medId ? { ...m, taken: true } : m);
-    setMeds(updatedMeds);
+  setMeds(updatedMeds);
 
-    try {
-      const medRef = doc(db, "households", householdId, "medicines", medId);
-      await updateDoc(medRef, { taken: true, status: "taken", lastUpdated: serverTimestamp() });
+  try {
+    const medRef = doc(db, "households", householdId, "medicines", medId);
+    await updateDoc(medRef, { taken: true, status: "taken", lastUpdated: serverTimestamp() });
+    
+    if (!currentStatus) {
+      const invRef = collection(db, "households", householdId, "inventory");
       
-      if (!currentStatus) {
-        const invRef = collection(db, "households", householdId, "inventory");
-        const q = query(invRef, where("medicineName", "==", medName)); 
-        const querySnapshot = await getDocs(q);
+      // --- THE CRITICAL FIX: Query by BOTH Name and Dosage ---
+      const q = query(
+        invRef, 
+        where("medicineName", "==", medName.trim().toUpperCase()), // Matches AddMed format
+        where("dosage", "==", dosageNum) // Matches AddMed format
+      ); 
 
-        const batches = querySnapshot.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .filter(b => Number(b.quantity) > 0)
-            .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+      const querySnapshot = await getDocs(q);
 
-        if (batches.length > 0) {
-            const targetBatch = batches[0]; 
-            const stockRef = doc(db, "households", householdId, "inventory", targetBatch.id);
-            await updateDoc(stockRef, { 
-                quantity: Number(targetBatch.quantity) - 1,
-                lastUpdated: serverTimestamp() 
-            });
-            setStockMap(prev => ({ ...prev, [normName]: prev[normName] - 1 }));
-        }
+      // Filter and sort to find the oldest batch with stock
+      const batches = querySnapshot.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(b => Number(b.quantity) > 0)
+          .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+
+      if (batches.length > 0) {
+          const targetBatch = batches[0]; 
+          const stockRef = doc(db, "households", householdId, "inventory", targetBatch.id);
+          
+          await updateDoc(stockRef, { 
+              quantity: Number(targetBatch.quantity) - 1,
+              lastUpdated: serverTimestamp() 
+          });
+
+          // Update local stockMap state
+          setStockMap(prev => ({ ...prev, [normName]: prev[normName] - 1 }));
+      } else {
+          console.error("No matching inventory found for this specific dosage.");
       }
-    } catch (err) { console.error(err); setMeds(meds); }
-  };
+    }
+  } catch (err) { 
+    console.error(err); 
+    setMeds(meds); // Rollback UI on error
+  }
+};
 
   const handleAiConsult = async (directQuery = null) => {
     const queryText = typeof directQuery === 'string' ? directQuery : aiQuery;
