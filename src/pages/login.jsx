@@ -2,29 +2,30 @@ import React, { useState } from "react";
 import { signUpUser, loginUser } from "../services/authService";
 
 export default function Login() {
-  const [isSignUp, setIsSignUp] = useState(false); // Default to login view
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState(""); // New State
   const [name, setName] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // New State for visibility
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Password Confirmation Logic
+    if (isSignUp && password !== confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+
     try {
       if (isSignUp) {
-        // Uses the new signUpUser which creates the Firestore profile
         await signUpUser(email, password, name);
         alert("Account Created Successfully!");
       } else {
         await loginUser(email, password);
       }
-
-      /**
-       * NATIVE NAVIGATION: 
-       * Since we aren't using React Router, window.location.href 
-       * forces a refresh to the dashboard, ensuring the App state reloads.
-       */
-      window.location.href = "/"; 
-
+      window.location.href = "/";
     } catch (error) {
       alert(error.message);
     }
@@ -63,14 +64,67 @@ export default function Login() {
             style={styles.input}
           />
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={styles.input}
-          />
+          {/* Password Field with Eye Icon */}
+          <div style={styles.passwordWrapper}>
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              style={{ ...styles.input, width: "100%", paddingRight: "40px" }} // Add padding for icon
+            />
+            <span
+              onClick={() => setShowPassword(!showPassword)}
+              style={styles.eyeIcon}
+            >
+              {showPassword ? (
+                // Eye Off Icon (SVG)
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#888"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              ) : (
+                // Eye Icon (SVG)
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#888"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              )}
+            </span>
+          </div>
+
+          {/* Confirm Password Field (Only for Sign Up) */}
+          {isSignUp && (
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              style={styles.input}
+            />
+          )}
 
           <button type="submit" style={styles.primaryBtn}>
             {isSignUp ? "Sign Up" : "Login"}
@@ -78,7 +132,13 @@ export default function Login() {
         </form>
 
         <button
-          onClick={() => setIsSignUp(!isSignUp)}
+          onClick={() => {
+            setIsSignUp(!isSignUp);
+            // Reset fields when switching modes
+            setConfirmPassword("");
+            setPassword("");
+            setShowPassword(false);
+          }}
           style={styles.switchBtn}
         >
           {isSignUp
@@ -132,6 +192,23 @@ const styles = {
     fontSize: "15px",
     outline: "none",
     transition: "border 0.2s",
+    boxSizing: "border-box", // Ensures padding doesn't affect width
+  },
+  // New wrapper for the password input and eye icon
+  passwordWrapper: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+    width: "100%",
+  },
+  // Style for the clickable eye icon
+  eyeIcon: {
+    position: "absolute",
+    right: "12px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   primaryBtn: {
     marginTop: "10px",
