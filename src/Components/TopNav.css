@@ -104,7 +104,7 @@
 .dropdown-menu {
   position: absolute;
   top: 55px;
-  right: 0; /* Aligns right edge */
+  right: 0;
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 20px 40px rgba(0,0,0,0.15);
@@ -116,7 +116,7 @@
 }
 
 /* Specific Widths */
-.family-menu { width: 280px; left: 0; right: auto; } /* Align Left for Family */
+.family-menu { width: 280px; left: 0; right: auto; }
 .profile-menu { width: 260px; right: 0; }
 
 @keyframes slideDown {
@@ -186,12 +186,6 @@
 .user-name { margin: 0; color: #1e3a8a; font-size: 1.1rem; }
 .household-label { font-size: 0.8rem; color: #64748b; }
 
-.id-box {
-  background: #f1f5f9; padding: 6px 10px; border-radius: 8px; margin-top: 8px;
-  display: flex; justify-content: space-between; font-size: 0.8rem; color: #475569; font-family: monospace;
-}
-.copy-icon { background: none; border: none; cursor: pointer; }
-
 .menu-item {
   width: 100%; text-align: left; padding: 10px; background: none; border: none;
   font-weight: 600; color: #334155; cursor: pointer; border-radius: 8px;
@@ -199,3 +193,117 @@
 .menu-item:hover { background: #f1f5f9; color: #2563eb; }
 .menu-item.logout { color: #ef4444; margin-top: 5px; border-top: 1px solid #f1f5f9; }
 .menu-item.logout:hover { background: #fee2e2; }
+
+/* ============================================================
+   4. ANIMATED ID BOX STYLES (NEW)
+   ============================================================ */
+
+.id-box {
+  background: #f1f5f9; 
+  padding: 8px 12px; 
+  border-radius: 10px; 
+  margin-top: 8px;
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  font-size: 0.85rem; 
+  color: #475569; 
+  font-family: monospace;
+  border: 1px solid transparent;
+  transition: all 0.3s ease;
+}
+
+/* Flash green background on success */
+.id-box.success-bg {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.id-text {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.copy-icon {
+  background: white; 
+  border: 1px solid #e2e8f0; 
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 1rem;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Bouncy transition */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-icon:hover {
+  background: #f8fafc;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+/* THE CLICK ANIMATION STATE */
+.copy-icon.copied {
+  background: #22c55e;
+  border-color: #22c55e;
+  color: white;
+  transform: scale(1.1) rotate(360deg); /* Spin and grow */
+}
+
+/* ============================================================
+   5. MOBILE OPTIMIZATION
+   ============================================================ */
+@media (max-width: 768px) {
+  .top-nav {
+    position: fixed;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    padding: 10px 15px;
+    justify-content: space-around;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+  }
+  
+  .brand { display: none; }
+  .divider-vertical { display: none; }
+
+  .nav-links {
+    width: 100%;
+    justify-content: space-around;
+    gap: 0;
+  }
+
+  .nav-btn {
+    flex-direction: column;
+    padding: 6px 0;
+    background: transparent;
+    border: none;
+    font-size: 10px;
+    gap: 4px;
+    backdrop-filter: none;
+    width: 60px;
+  }
+
+  .nav-btn { font-size: 11px; }
+
+  .nav-btn.active {
+    background: rgba(255,255,255,0.2);
+    border-radius: 12px;
+    color: white;
+  }
+
+  .dropdown-menu {
+    bottom: 70px;
+    top: auto;
+    right: 0;
+    left: auto;
+    width: 280px;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
+  }
+  
+  .family-menu { left: 0; right: auto; }
+  .profile-menu { right: 0; left: auto; }
+}

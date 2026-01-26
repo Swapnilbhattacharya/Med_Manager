@@ -11,6 +11,9 @@ export default function TopNav({
   const [isFamilyOpen, setIsFamilyOpen] = useState(false); 
   const [familyMembers, setFamilyMembers] = useState([]);
   
+  // Animation State for Copy Button
+  const [copySuccess, setCopySuccess] = useState(false);
+  
   const profileRef = useRef(null);
   const familyRef = useRef(null);
 
@@ -36,6 +39,16 @@ export default function TopNav({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [householdId, user.uid]);
 
+  // --- ACTIONS ---
+  
+  const handleCopyId = () => {
+    if (householdId) {
+      navigator.clipboard.writeText(householdId);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000); // Reset after 2s
+    }
+  };
+
   const handleMonitorSelect = (member) => {
     setMonitoringTarget(member);
     setView("dashboard");
@@ -50,7 +63,6 @@ export default function TopNav({
 
   const initial = userName ? userName.charAt(0).toUpperCase() : "U";
 
-  // Helper to determine label
   const getRoleLabel = (uid) => {
     return uid === adminUid ? "Admin" : "Member";
   };
@@ -64,6 +76,7 @@ export default function TopNav({
 
       <div className="nav-links">
         
+        {/* FAMILY DROPDOWN */}
         <div className="nav-dropdown-container" ref={familyRef}>
           <button 
             className={`nav-btn family-btn ${monitoringTarget ? 'active-monitor' : ''} ${isFamilyOpen ? 'open' : ''}`} 
@@ -81,7 +94,7 @@ export default function TopNav({
               <h4 className="menu-title">Select Member to Monitor</h4>
               
               <div className="family-list">
-                {/* MY DASHBOARD ENTRY */}
+                {/* My Dashboard Option */}
                 <button 
                   className={`family-item ${!monitoringTarget ? 'current' : ''}`}
                   onClick={handleStopMonitoring}
@@ -98,7 +111,7 @@ export default function TopNav({
 
                 <div className="divider"></div>
 
-                {/* FAMILY MEMBERS LIST */}
+                {/* Other Members */}
                 {familyMembers.length > 0 ? familyMembers.map(member => (
                   <button 
                     key={member.uid}
@@ -124,11 +137,13 @@ export default function TopNav({
 
         <div className="divider-vertical"></div>
 
+        {/* MAIN NAVIGATION LINKS */}
         <button className={`nav-btn ${currentView === "dashboard" ? "active" : ""}`} onClick={() => setView("dashboard")}>🏠 Dashboard</button>
         <button className={`nav-btn ${currentView === "inventory" ? "active" : ""}`} onClick={() => setView("inventory")}>📦 Stock</button>
         <button className={`nav-btn ${currentView === "calendar" ? "active" : ""}`} onClick={() => setView("calendar")}>📅 Calendar</button>
         <button className={`nav-btn ${currentView === "addMed" ? "active" : ""}`} onClick={() => setView("addMed")}>➕ Add Med</button>
 
+        {/* PROFILE DROPDOWN (Hidden when monitoring) */}
         {!monitoringTarget && (
           <div className="profile-container" ref={profileRef}>
             <div className="profile-btn" onClick={() => setIsProfileOpen(!isProfileOpen)}>
@@ -140,10 +155,20 @@ export default function TopNav({
                 <div className="user-info">
                   <h4 className="user-name">{userName}</h4>
                   <span className="household-label">{familyName}</span>
-                  <div className="id-box">
+                  
+                  {/* ANIMATED ID COPY BOX */}
+                  <div className={`id-box ${copySuccess ? 'success-bg' : ''}`}>
                     <span className="id-text">{householdId?.substring(0, 8)}...</span>
-                    <button className="copy-icon" onClick={() => navigator.clipboard.writeText(householdId)}>📋</button>
+                    <button 
+                      className={`copy-icon ${copySuccess ? 'copied' : ''}`} 
+                      onClick={handleCopyId}
+                      title="Copy Household ID"
+                    >
+                      {copySuccess ? "✅" : "📋"}
+                    </button>
                   </div>
+                  {copySuccess && <span style={{fontSize:'0.7rem', color:'#166534', fontWeight:'bold', display:'block', marginTop:'4px'}}>Copied to clipboard!</span>}
+
                 </div>
 
                 <div className="menu-actions">
