@@ -1,5 +1,5 @@
 // 1. YOUR WORKING KEY
-const API_KEY = "AIzaSyC2cXb_uonw-gEOeWSaqL3PzbOHCdJ3fyk"; 
+const API_KEY = "AIzaSyCBYYQ_hKc_gL5hTlryZv8e8a4W3yuU9uI"; 
 
 export const getMedicineAlternative = async (userQuery, history = []) => {
   try {
